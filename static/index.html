@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Starship Controller</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; }
+
+    body {
+      background: #0a0a1a;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── Status bar ── */
+    #status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      background: #111;
+      font-size: 14px;
+    }
+    #conn-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #f00;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    #conn-dot.connected { background: #0f0; }
+
+    /* ── Stats row ── */
+    #stats {
+      display: flex;
+      justify-content: space-around;
+      padding: 8px;
+      background: #0d0d20;
+      font-size: 13px;
+      gap: 4px;
+    }
+    .stat { display: flex; flex-direction: column; align-items: center; }
+    .stat-label { color: #888; font-size: 10px; }
+    .stat-value { font-size: 18px; font-weight: bold; }
+    #hp-value   { color: #f55; }
+    #score-value{ color: #ff0; }
+    #coins-value{ color: #fa0; }
+    #wpn-value  { color: #0af; }
+
+    /* ── Join screen ── */
+    #join-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+    }
+    #join-screen h1 { font-size: 28px; color: #4af; letter-spacing: 2px; }
+    #name-input {
+      width: 100%; max-width: 280px;
+      padding: 12px 16px;
+      background: #1a1a2e;
+      border: 2px solid #4af;
+      color: #fff;
+      font-size: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #join-btn {
+      width: 100%; max-width: 280px;
+      padding: 16px;
+      background: #4af;
+      color: #000;
+      font-size: 22px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* ── Controller screen ── */
+    #controller-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* ── Joystick zone (left 60%) ── */
+    #joy-zone {
+      position: absolute;
+      left: 0; top: 0;
+      width: 60%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #joy-base {
+      width: 150px; height: 150px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: 2px solid rgba(255,255,255,0.15);
+      position: relative;
+    }
+    #joy-knob {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: rgba(68,170,255,0.6);
+      border: 2px solid #4af;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: background 0.1s;
+    }
+
+    /* ── Fire button (right 40%) ── */
+    #fire-zone {
+      position: absolute;
+      right: 0; top: 0;
+      width: 40%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #fire-btn {
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      background: rgba(255, 60, 60, 0.25);
+      border: 3px solid #f44;
+      font-size: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f44;
+    }
+    #fire-btn.pressed {
+      background: rgba(255, 60, 60, 0.7);
+    }
+
+    /* ── Market screen ── */
+    #market-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 16px 12px;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    #market-screen h2 {
+      font-size: 26px;
+      color: #fd0;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+    #market-coins {
+      font-size: 20px;
+      color: #fa0;
+      margin-bottom: 8px;
+    }
+    .market-item {
+      width: 100%;
+      max-width: 360px;
+      background: #1a1a30;
+      border: 2px solid #444;
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .market-item.can-afford { border-color: #4af; }
+    .market-item-info { flex: 1; }
+    .market-item-name { font-size: 17px; font-weight: bold; color: #eee; }
+    .market-item-desc { font-size: 12px; color: #999; margin-top: 3px; }
+    .market-buy-btn {
+      min-width: 80px;
+      padding: 10px 14px;
+      background: #4af;
+      color: #000;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .market-buy-btn:disabled {
+      background: #444;
+      color: #888;
+      cursor: default;
+    }
+    #market-timer-label {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #888;
+    }
+
+    /* ── Full / error screen ── */
+    #full-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #f55;
+    }
+    #full-screen h2 { font-size: 32px; }
+
+    /* ── Pull-to-refresh ── */
+    #ptr-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #111c;
+      color: #4af;
+      font-size: 15px;
+      letter-spacing: 1px;
+      transform: translateY(-56px);
+      transition: transform 0.18s ease;
+      z-index: 200;
+      pointer-events: none;
+    }
+    #ptr-bar.show   { transform: translateY(0); }
+    #ptr-bar.ready  { color: #4f4; }
+    #ptr-arrow {
+      font-size: 22px;
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+    #ptr-bar.ready #ptr-arrow { transform: rotate(180deg); }
+
+    /* ── Disconnect overlay ── */
+    #dc-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: #fff;
+      text-align: center;
+      padding: 24px;
+    }
+    #dc-overlay.show { display: flex; }
+    #dc-overlay h2   { font-size: 28px; color: #f55; }
+    #dc-overlay p    { font-size: 15px; color: #aaa; }
+    #dc-hint {
+      margin-top: 6px;
+      font-size: 20px;
+      color: #4af;
+      animation: bob 1.2s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(8px); }
+    }
+
+    /* ── Respawn overlay ── */
+    #respawn-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(100, 0, 0, 0.85);
+      z-index: 150;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: #fff;
+      text-align: center;
+      padding: 24px;
+      backdrop-filter: blur(4px);
+    }
+    #respawn-overlay.show { display: flex; }
+    #respawn-overlay h2   { font-size: 42px; color: #ff4444; letter-spacing: 2px; }
+    #respawn-overlay p    { font-size: 16px; color: #ddd; max-width: 80%; line-height: 1.4; }
+    .respawn-spinner {
+      margin-top: 10px;
+      width: 40px; height: 40px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: #ff4444;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- Status bar -->
+<div id="status-bar">
+  <span><span id="conn-dot"></span><span id="conn-label">Connecting…</span></span>
+  <span id="player-tag"></span>
+</div>
+
+<!-- Stats -->
+<div id="stats">
+  <div class="stat"><span class="stat-label">HP</span><span class="stat-value" id="hp-value">–</span></div>
+  <div class="stat"><span class="stat-label">SCORE</span><span class="stat-value" id="score-value">–</span></div>
+  <div class="stat"><span class="stat-label">COINS</span><span class="stat-value" id="coins-value">–</span></div>
+  <div class="stat"><span class="stat-label">WEAPON</span><span class="stat-value" id="wpn-value">–</span></div>
+</div>
+
+<!-- Join screen -->
+<div id="join-screen">
+  <h1>⭐ STARSHIP</h1>
+  <p style="color:#888;font-size:14px">Enter your pilot name</p>
+  <input id="name-input" type="text" maxlength="12" placeholder="Pilot name" autocomplete="off"/>
+  <button id="join-btn">JOIN GAME</button>
+</div>
+
+<!-- Controller -->
+<div id="controller-screen">
+  <div id="joy-zone">
+    <div id="joy-base">
+      <div id="joy-knob"></div>
+    </div>
+  </div>
+  <div id="fire-zone">
+    <div id="fire-btn">🔥</div>
+  </div>
+</div>
+
+<!-- Market -->
+<div id="market-screen">
+  <h2>🛒 MARKET</h2>
+  <div id="market-coins">Coins: –</div>
+  <div id="market-items"></div>
+  <div id="market-timer-label">Waiting for wave…</div>
+</div>
+
+<!-- Full -->
+<div id="full-screen">
+  <h2>GAME FULL</h2>
+  <p>8 players already connected</p>
+</div>
+
+<!-- Pull-to-refresh bar (slides in from top) -->
+<div id="ptr-bar">
+  <span id="ptr-arrow">↓</span>
+  <span id="ptr-label">Pull to reconnect</span>
+</div>
+
+<!-- Disconnect overlay -->
+<div id="dc-overlay">
+  <h2>⚠ Disconnected</h2>
+  <p>Connection to the game server was lost.</p>
+  <div id="dc-hint">↓ Pull down to reconnect ↓</div>
+</div>
+
+<!-- Respawn overlay -->
+<div id="respawn-overlay">
+  <h2>DEAD</h2>
+  <p>Waiting for reinforcement...</p>
+  <div class="respawn-spinner"></div>
+</div>
+
+<script>
+// ── WebSocket ────────────────────────────────────────────────────────────────
+const host = location.hostname;
+const WS_URL = `ws://${host}:3000/ws`;
+
+let ws = null;
+let joined = false;
+let playerId = null;
+let isDisconnected = false;
+
+// joystick state
+let joyActive = false;
+let joyOrigin = { x: 0, y: 0 };
+let joyVec    = { x: 0, y: 0 };
+const JOY_RADIUS = 75; // half of joy-base
+
+// fire state
+let firing = false;
+
+// input send interval (~30Hz)
+let sendInterval = null;
+
+// current coins (for market UI refresh)
+let myCoins = 0;
+let myHp = null;
+let currentMarketItems = [];
+let currentScreen = 'join-screen';
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    document.getElementById('conn-dot').classList.add('connected');
+    document.getElementById('conn-label').textContent = 'Connected';
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleServer(msg);
+  };
+
+  ws.onclose = () => {
+    document.getElementById('conn-dot').classList.remove('connected');
+    document.getElementById('conn-label').textContent = 'Disconnected';
+    clearInterval(sendInterval);
+    sendInterval = null;
+    isDisconnected = true;
+    document.getElementById('dc-overlay').classList.add('show');
+  };
+
+  ws.onerror = () => {
+    document.getElementById('conn-label').textContent = 'Connection error';
+  };
+}
+
+function handleServer(msg) {
+  switch (msg.type) {
+    case 'joined':
+      playerId = msg.player_id;
+      document.getElementById('player-tag').textContent = `P${playerId + 1}`;
+      break;
+    case 'full':
+      show('full-screen');
+      break;
+    case 'state':
+      if (myHp !== null && msg.hp < myHp && navigator.vibrate) {
+        if (msg.hp > 0) {
+          navigator.vibrate(150); // Short vibration for taking damage
+        } else {
+          navigator.vibrate([200, 100, 200, 100, 400]); // Long pattern for death
+        }
+      }
+      myHp = msg.hp;
+      
+      myCoins = msg.coins;
+      document.getElementById('hp-value').textContent    = '❤️'.repeat(msg.hp) || '💀';
+      document.getElementById('score-value').textContent = msg.score;
+      document.getElementById('coins-value').textContent = msg.coins;
+      document.getElementById('wpn-value').textContent   = `Lv${msg.weapon_level}`;
+
+      const respawnOverlay = document.getElementById('respawn-overlay');
+      if (msg.respawning) {
+        respawnOverlay.classList.add('show');
+        if (joyActive) joyEnd();
+        firing = false;
+        const fireBtn = document.getElementById('fire-btn');
+        if (fireBtn) fireBtn.classList.remove('pressed');
+      } else {
+        respawnOverlay.classList.remove('show');
+      }
+
+      if (currentScreen === 'market-screen') {
+        refreshMarketAffordability();
+      }
+      break;
+    case 'event':
+      showToast(msg.msg);
+      // ออกจาก market เมื่อ wave ถัดไปเริ่ม
+      if (msg.msg && msg.msg.includes('GO!')) {
+        currentMarketItems = [];
+        show('controller-screen');
+      }
+      break;
+    case 'market':
+      currentMarketItems = msg.items;
+      showMarket(msg.items);
+      break;
+    default:
+      break;
+  }
+}
+
+function sendInput() {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !joined) return;
+  ws.send(JSON.stringify({
+    type: 'input',
+    joy:  [joyVec.x, joyVec.y],
+    fire: firing,
+  }));
+}
+
+function sendBuy(itemId) {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !joined) return;
+  ws.send(JSON.stringify({ type: 'buy', item: itemId }));
+}
+
+// ── Join ─────────────────────────────────────────────────────────────────────
+document.getElementById('join-btn').addEventListener('click', () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const name = document.getElementById('name-input').value.trim() || 'Pilot';
+  ws.send(JSON.stringify({ type: 'join', name }));
+  joined = true;
+  show('controller-screen');
+  sendInterval = setInterval(sendInput, 33); // ~30Hz
+});
+
+document.getElementById('name-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('join-btn').click();
+});
+
+// ── Joystick ─────────────────────────────────────────────────────────────────
+const joyBase  = document.getElementById('joy-base');
+const joyKnob  = document.getElementById('joy-knob');
+
+function joyStart(x, y) {
+  const rect = joyBase.getBoundingClientRect();
+  joyOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  joyActive = true;
+  joyKnob.style.background = 'rgba(68,170,255,0.9)';
+}
+
+function joyMove(x, y) {
+  if (!joyActive) return;
+  let dx = x - joyOrigin.x;
+  let dy = y - joyOrigin.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > JOY_RADIUS) {
+    dx = (dx / dist) * JOY_RADIUS;
+    dy = (dy / dist) * JOY_RADIUS;
+  }
+  joyKnob.style.left = `${75 + dx}px`;   // 75 = half of joy-base (150/2)
+  joyKnob.style.top  = `${75 + dy}px`;
+  joyKnob.style.transform = 'none';
+  joyVec = { x: dx / JOY_RADIUS, y: dy / JOY_RADIUS };
+}
+
+function joyEnd() {
+  joyActive = false;
+  joyVec = { x: 0, y: 0 };
+  joyKnob.style.left = '50%';
+  joyKnob.style.top  = '50%';
+  joyKnob.style.transform = 'translate(-50%, -50%)';
+  joyKnob.style.background = 'rgba(68,170,255,0.6)';
+}
+
+document.getElementById('joy-zone').addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  joyStart(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+document.getElementById('joy-zone').addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  joyMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+document.getElementById('joy-zone').addEventListener('touchend', (e) => {
+  e.preventDefault();
+  joyEnd();
+}, { passive: false });
+
+// ── Fire button ───────────────────────────────────────────────────────────────
+const fireBtn = document.getElementById('fire-btn');
+
+fireBtn.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  firing = true;
+  fireBtn.classList.add('pressed');
+}, { passive: false });
+
+fireBtn.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  firing = false;
+  fireBtn.classList.remove('pressed');
+}, { passive: false });
+
+// ── Market ────────────────────────────────────────────────────────────────────
+function showMarket(items) {
+  show('market-screen');
+  currentMarketItems = items;
+  renderMarketItems(items);
+}
+
+function renderMarketItems(items) {
+  document.getElementById('market-coins').textContent = `Coins: ${myCoins}`;
+
+  const container = document.getElementById('market-items');
+  container.innerHTML = '';
+
+  for (const item of items) {
+    const canAfford = myCoins >= item.cost;
+    const div = document.createElement('div');
+    div.className = 'market-item' + (canAfford ? ' can-afford' : '');
+    div.innerHTML = `
+      <div class="market-item-info">
+        <div class="market-item-name">${item.name}</div>
+        <div class="market-item-desc">${item.description}</div>
+      </div>
+      <button class="market-buy-btn" data-id="${item.id}" data-cost="${item.cost}" ${canAfford ? '' : 'disabled'}>
+        ${item.cost}🪙
+      </button>
+    `;
+    container.appendChild(div);
+  }
+
+  // buy button events
+  container.querySelectorAll('.market-buy-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      sendBuy(btn.dataset.id);
+      showToast('Buying…');
+    });
+  });
+}
+
+// ── Market affordability refresh (in-place, called on every state update) ────
+// ไม่ rebuild DOM — แค่อัปเดต disabled state และ border color ตาม myCoins ล่าสุด
+function refreshMarketAffordability() {
+  document.getElementById('market-coins').textContent = `Coins: ${myCoins}`;
+  document.querySelectorAll('#market-items .market-item').forEach(div => {
+    const btn = div.querySelector('.market-buy-btn');
+    if (!btn || btn.disabled) return; // skip ปุ่มที่กดซื้อไปแล้ว (pending / sold out)
+    const cost = parseInt(btn.dataset.cost);
+    const canAfford = myCoins >= cost;
+    div.classList.toggle('can-afford', canAfford);
+    btn.disabled = !canAfford;
+  });
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(text) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = `
+      position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+      background:#fff2; color:#fff; padding:10px 20px; border-radius:20px;
+      font-size:14px; pointer-events:none; transition:opacity 0.5s;
+    `;
+    document.body.appendChild(t);
+  }
+  t.textContent = text;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2000);
+}
+
+// ── Helper ────────────────────────────────────────────────────────────────────
+function show(id) {
+  currentScreen = id;
+  for (const s of ['join-screen','controller-screen','market-screen','full-screen']) {
+    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+  }
+}
+
+// ── Pull-to-refresh ──────────────────────────────────────────────────────────
+const PTR_THRESHOLD = 72;
+const ptrBar   = document.getElementById('ptr-bar');
+const ptrLabel = document.getElementById('ptr-label');
+
+let pullStartY = 0;
+let pullDist   = 0;
+let pullActive = false;
+
+document.addEventListener('touchstart', (e) => {
+  if (!isDisconnected) return;
+  pullStartY = e.touches[0].clientY;
+  pullDist   = 0;
+  pullActive = true;
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+  if (!pullActive || !isDisconnected) return;
+  pullDist = Math.max(0, e.touches[0].clientY - pullStartY);
+  if (pullDist > 8) {
+    ptrBar.classList.add('show');
+    if (pullDist >= PTR_THRESHOLD) {
+      ptrBar.classList.add('ready');
+      ptrLabel.textContent = 'Release to reconnect';
+    } else {
+      ptrBar.classList.remove('ready');
+      ptrLabel.textContent = 'Pull to reconnect';
+    }
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', () => {
+  if (!pullActive || !isDisconnected) return;
+  pullActive = false;
+  const dist = pullDist;
+  pullDist = 0;
+  ptrBar.classList.remove('show', 'ready');
+  ptrLabel.textContent = 'Pull to reconnect';
+  if (dist >= PTR_THRESHOLD) {
+    location.reload();
+  }
+}, { passive: true });
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>
