@@ -1,5 +1,31 @@
 use serde::{Deserialize, Serialize};
 
+// ── Ship Designer types ───────────────────────────────────────────────────────
+
+/// หนึ่ง cell ในกริดของยาน  (col, row เริ่มจาก 0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipCell {
+    pub col: u8,
+    pub row: u8,
+    pub part: ShipPart,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShipPart {
+    Hull,
+    Cockpit,
+    Engine,
+    Weapon,
+    Wing,
+}
+
+/// ข้อมูลยานที่ออกแบบ ส่งจาก phone → server
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipDesign {
+    pub cells: Vec<ShipCell>,
+}
+
 // ── Phone → Server ──────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -17,6 +43,9 @@ pub enum ClientMsg {
 
     /// ซื้อ item ใน market
     Buy { item: String },
+
+    /// ส่ง ship design ที่ออกแบบไว้ใน Lobby
+    ShipDesign { cells: Vec<ShipCell> },
 }
 
 // ── Server → Phone ──────────────────────────────────────────────────────────
@@ -70,6 +99,8 @@ pub struct PlayerInput {
     pub name: Option<String>,
     /// true = phone disconnect แล้ว → ลบออกจาก game
     pub disconnect: bool,
+    /// ship design ที่ player ออกแบบไว้ใน Lobby
+    pub ship_design: Option<ShipDesign>,
 }
 
 /// Event จาก game ออกไป server เพื่อ broadcast หรือ unicast

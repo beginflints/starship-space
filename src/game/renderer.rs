@@ -319,8 +319,16 @@ fn draw_players(state: &GameState) {
         }
 
         let hp_ratio = p.hp as f32 / p.max_hp.max(1) as f32;
+        let has_design = p.ship_design.as_ref().map_or(false, |d| !d.cells.is_empty());
 
-        if p.hp < p.max_hp {
+        if has_design {
+            let cells = &p.ship_design.as_ref().unwrap().cells;
+            if p.hp < p.max_hp {
+                draw_ship_design_damaged(p.x, p.y, c, hp_ratio, cells);
+            } else {
+                draw_ship_from_design(p.x, p.y, c, cells);
+            }
+        } else if p.hp < p.max_hp {
             draw_ship_damaged(p.x, p.y, SHIP_R, c, hp_ratio);
         } else {
             draw_ship(p.x, p.y, SHIP_R, c);
@@ -588,6 +596,64 @@ fn draw_game_over(state: &GameState) {
 }
 
 // ── Ship helpers ─────────────────────────────────────────────────────────────
+
+/// วาด ship จาก cell grid ที่ผู้เล่นออกแบบ (7×9 grid, col 0-6, row 0-8)
+/// cell (3,4) = ship center; row 0 = nose, row 8 = engine
+fn draw_ship_from_design(x: f32, y: f32, color: Color, cells: &[crate::server::messages::ShipCell]) {
+    use crate::server::messages::ShipPart;
+    const CS: f32 = 5.5; // cell size in world pixels
+    for cell in cells {
+        let dx = (cell.col as f32 - 3.0) * CS;
+        let dy = (cell.row as f32 - 4.0) * CS;
+        let cell_color = match cell.part {
+            ShipPart::Hull    => color,
+            ShipPart::Cockpit => WHITE,
+            ShipPart::Engine  => Color::from_rgba(80, 220, 255, 230),
+            ShipPart::Weapon  => Color::from_rgba(255, 80,  60, 230),
+            ShipPart::Wing    => Color::new(color.r * 0.7, color.g * 0.7, color.b * 0.7, 0.9),
+        };
+        draw_rectangle(x + dx - CS * 0.45, y + dy - CS * 0.45, CS * 0.9, CS * 0.9, cell_color);
+    }
+}
+
+/// draw_ship_from_design + damage overlay (aura before, cockpit+cracks after)
+fn draw_ship_design_damaged(
+    x: f32, y: f32, color: Color, hp_ratio: f32,
+    cells: &[crate::server::messages::ShipCell],
+) {
+    let Some(stage) = super::effects::damage_stage(hp_ratio) else { return; };
+
+    // aura
+    let aura_a = if stage.aura_pulse_hz > 0.0 {
+        let pulse = ((get_time() * stage.aura_pulse_hz as f64).sin() * 0.5 + 0.5) as f32;
+        (stage.aura_alpha_base as f32 + stage.aura_pulse_amp as f32 * pulse) as u8
+    } else {
+        stage.aura_alpha_base
+    };
+    let (ar, ag, ab) = stage.aura_rgb;
+    draw_circle(x, y, SHIP_R * stage.aura_radius_mult, Color::from_rgba(ar, ag, ab, aura_a));
+
+    draw_ship_from_design(x, y, color, cells);
+
+    // cockpit overlay
+    let cockpit_a = if stage.cockpit_pulse_hz > 0.0 {
+        let pulse = ((get_time() * stage.cockpit_pulse_hz as f64).sin() * 0.5 + 0.5) as f32;
+        (stage.cockpit_alpha_base as f32 + stage.cockpit_pulse_amp as f32 * pulse) as u8
+    } else {
+        stage.cockpit_alpha_base
+    };
+    let (cr, cg, cb) = stage.cockpit_rgb;
+    draw_circle(x, y - SHIP_R * 0.3, SHIP_R * 0.19, Color::from_rgba(cr, cg, cb, cockpit_a));
+
+    // cracks
+    for &(x1m, y1m, x2m, y2m) in stage.cracks {
+        draw_line(
+            x + SHIP_R * x1m, y + SHIP_R * y1m,
+            x + SHIP_R * x2m, y + SHIP_R * y2m,
+            1.5, Color::from_rgba(255, 210, 80, 158),
+        );
+    }
+}
 
 fn draw_ship(x: f32, y: f32, size: f32, color: Color) {
     let tip   = Vec2::new(x, y - size);

@@ -206,7 +206,119 @@
       color: #888;
     }
 
-    /* ── Full / error screen ── */
+    /* ── Ship Designer screen ── */
+    #designer-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      background: #0a0a1a;
+      padding: 8px 0 0;
+      gap: 6px;
+    }
+    #designer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0 12px;
+    }
+    #designer-header h2 { font-size: 18px; color: #4af; letter-spacing: 1px; }
+    #designer-budget    { font-size: 14px; color: #fa0; }
+    #budget-bar {
+      width: calc(100% - 24px);
+      height: 6px;
+      background: #222;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    #budget-fill {
+      height: 100%;
+      background: #4af;
+      border-radius: 3px;
+      transition: width 0.15s;
+    }
+    #budget-fill.tight { background: #f80; }
+    #budget-fill.full  { background: #f44; }
+
+    #designer-canvas-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+    #ship-canvas {
+      border: 1px solid #333;
+      border-radius: 4px;
+      touch-action: none;
+      display: block;
+    }
+
+    /* palette */
+    #palette {
+      display: flex;
+      gap: 6px;
+      padding: 4px 10px;
+      width: 100%;
+      justify-content: center;
+    }
+    .part-btn {
+      flex: 1;
+      max-width: 68px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: #111;
+      border: 2px solid #333;
+      border-radius: 8px;
+      padding: 6px 2px 5px;
+      font-size: 9px;
+      color: #aaa;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .part-btn.selected { border-color: #4af; color: #fff; background: #152030; }
+    .part-icon {
+      width: 22px; height: 22px;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    /* stats + launch */
+    #designer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 4px 12px 8px;
+      gap: 8px;
+    }
+    #designer-stats {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      color: #aaa;
+    }
+    #designer-stats span { display: flex; align-items: center; gap: 4px; }
+    #designer-launch-btn {
+      padding: 10px 20px;
+      background: #4af;
+      color: #000;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* Full / error screen ── */
     #full-screen {
       flex: 1;
       display: none;
@@ -346,6 +458,49 @@
   <div id="market-coins">Coins: –</div>
   <div id="market-items"></div>
   <div id="market-timer-label">Waiting for wave…</div>
+</div>
+
+<!-- Ship Designer -->
+<div id="designer-screen">
+  <div id="designer-header">
+    <h2>✏ DESIGN SHIP</h2>
+    <span id="designer-budget">0 / 20 pts</span>
+  </div>
+  <div id="budget-bar"><div id="budget-fill" style="width:0%"></div></div>
+
+  <div id="designer-canvas-wrap">
+    <canvas id="ship-canvas"></canvas>
+  </div>
+
+  <div id="palette">
+    <div class="part-btn selected" data-part="hull">
+      <div class="part-icon" style="background:#4af"></div>HULL<br><span style="color:#666">1pt</span>
+    </div>
+    <div class="part-btn" data-part="cockpit">
+      <div class="part-icon" style="background:#fff"></div>COCKPIT<br><span style="color:#666">3pt</span>
+    </div>
+    <div class="part-btn" data-part="engine">
+      <div class="part-icon" style="background:#0af"></div>ENGINE<br><span style="color:#666">2pt</span>
+    </div>
+    <div class="part-btn" data-part="weapon">
+      <div class="part-icon" style="background:#f44"></div>WEAPON<br><span style="color:#666">3pt</span>
+    </div>
+    <div class="part-btn" data-part="wing">
+      <div class="part-icon" style="background:#58a">🪽</div>WING<br><span style="color:#666">1pt</span>
+    </div>
+    <div class="part-btn" data-part="erase">
+      <div class="part-icon" style="background:#333;border:1px solid #555;font-size:16px">✕</div>ERASE
+    </div>
+  </div>
+
+  <div id="designer-bottom">
+    <div id="designer-stats">
+      <span>❤ +<span id="stat-hull">0</span></span>
+      <span>⚡ <span id="stat-engine">0</span></span>
+      <span>🔫 <span id="stat-weapon">0</span></span>
+    </div>
+    <button id="designer-launch-btn">🚀 LAUNCH</button>
+  </div>
 </div>
 
 <!-- Full -->
@@ -503,14 +658,14 @@ function sendBuy(itemId) {
   ws.send(JSON.stringify({ type: 'buy', item: itemId }));
 }
 
-// ── Join ─────────────────────────────────────────────────────────────────────
+// ── Join → Designer ──────────────────────────────────────────────────────────
+let pendingName = '';
+
 document.getElementById('join-btn').addEventListener('click', () => {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  const name = document.getElementById('name-input').value.trim() || 'Pilot';
-  ws.send(JSON.stringify({ type: 'join', name }));
-  joined = true;
-  show('controller-screen');
-  sendInterval = setInterval(sendInput, 33); // ~30Hz
+  pendingName = document.getElementById('name-input').value.trim() || 'Pilot';
+  show('designer-screen');
+  initDesigner();
 });
 
 document.getElementById('name-input').addEventListener('keydown', (e) => {
@@ -657,10 +812,201 @@ function showToast(text) {
 // ── Helper ────────────────────────────────────────────────────────────────────
 function show(id) {
   currentScreen = id;
-  for (const s of ['join-screen','controller-screen','market-screen','full-screen']) {
+  const screens = ['join-screen','designer-screen','controller-screen','market-screen','full-screen'];
+  for (const s of screens) {
     document.getElementById(s).style.display = s === id ? 'flex' : 'none';
   }
 }
+
+// ── Ship Designer ─────────────────────────────────────────────────────────────
+const GRID_COLS = 7;
+const GRID_ROWS = 9;
+const MAX_BUDGET = 20;
+const PART_COST  = { hull:1, cockpit:3, engine:2, weapon:3, wing:1, erase:0 };
+const PART_MAX   = { cockpit:1 };           // parts with a cap
+const PART_COLOR = {
+  hull:    '#4aaff0',
+  cockpit: '#ffffff',
+  engine:  '#00aaff',
+  weapon:  '#ff4444',
+  wing:    '#5588aa',
+};
+
+let grid       = [];   // grid[row][col] = part string | null
+let selectedPart = 'hull';
+let budgetUsed   = 0;
+let cellSize     = 44; // recalculated in initDesigner
+let canvasEl, ctx;
+
+function initDesigner() {
+  canvasEl = document.getElementById('ship-canvas');
+  ctx      = canvasEl.getContext('2d');
+
+  // size canvas to fit available space
+  const wrap = document.getElementById('designer-canvas-wrap');
+  const maxW = wrap.clientWidth  - 8;
+  const maxH = wrap.clientHeight - 8;
+  cellSize = Math.floor(Math.min(maxW / GRID_COLS, maxH / GRID_ROWS));
+  cellSize = Math.max(cellSize, 30);
+  canvasEl.width  = cellSize * GRID_COLS;
+  canvasEl.height = cellSize * GRID_ROWS;
+
+  // reset grid only on first open (preserve design on re-open)
+  if (grid.length === 0) {
+    grid = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
+    // seed a minimal default ship so it doesn't start empty
+    grid[1][3] = 'cockpit';
+    grid[2][3] = 'hull';
+    grid[3][2] = 'hull'; grid[3][3] = 'hull'; grid[3][4] = 'hull';
+    grid[4][2] = 'hull'; grid[4][3] = 'hull'; grid[4][4] = 'hull';
+    grid[5][1] = 'wing'; grid[5][2] = 'hull'; grid[5][3] = 'hull'; grid[5][4] = 'hull'; grid[5][5] = 'wing';
+    grid[6][3] = 'engine';
+    grid[7][3] = 'engine';
+  }
+
+  recalcBudget();
+  drawGrid();
+
+  // palette button events
+  document.querySelectorAll('.part-btn').forEach(btn => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.part-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedPart = btn.dataset.part;
+    });
+  });
+
+  // canvas touch/pointer events
+  canvasEl.addEventListener('pointerdown', onCanvasPointer, { passive: false });
+  canvasEl.addEventListener('pointermove', onCanvasPointer, { passive: false });
+}
+
+function onCanvasPointer(e) {
+  if (e.buttons === 0) return;
+  e.preventDefault();
+  const rect = canvasEl.getBoundingClientRect();
+  const scaleX = canvasEl.width  / rect.width;
+  const scaleY = canvasEl.height / rect.height;
+  const px = (e.clientX - rect.left) * scaleX;
+  const py = (e.clientY - rect.top)  * scaleY;
+  const col = Math.floor(px / cellSize);
+  const row = Math.floor(py / cellSize);
+  if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return;
+
+  if (selectedPart === 'erase') {
+    grid[row][col] = null;
+  } else {
+    const current = grid[row][col];
+    // budget check
+    const addCost = (current ? 0 : PART_COST[selectedPart]);
+    const removeSavings = (current ? PART_COST[current] : 0);
+    const delta = addCost - removeSavings;
+    // cap check
+    if (PART_MAX[selectedPart] && countOf(selectedPart) >= PART_MAX[selectedPart] && current !== selectedPart) return;
+    if (budgetUsed + delta > MAX_BUDGET) return;
+    grid[row][col] = selectedPart;
+  }
+
+  recalcBudget();
+  drawGrid();
+}
+
+function countOf(part) {
+  let n = 0;
+  for (const row of grid) for (const cell of row) if (cell === part) n++;
+  return n;
+}
+
+function recalcBudget() {
+  budgetUsed = 0;
+  for (const row of grid) for (const cell of row) if (cell) budgetUsed += PART_COST[cell];
+
+  const pct = (budgetUsed / MAX_BUDGET) * 100;
+  const fill = document.getElementById('budget-fill');
+  fill.style.width = pct + '%';
+  fill.className = pct >= 100 ? 'full' : pct >= 80 ? 'tight' : '';
+  document.getElementById('designer-budget').textContent = `${budgetUsed} / ${MAX_BUDGET} pts`;
+
+  document.getElementById('stat-hull').textContent   = countOf('hull');
+  document.getElementById('stat-engine').textContent = countOf('engine');
+  document.getElementById('stat-weapon').textContent = countOf('weapon');
+}
+
+function drawGrid() {
+  if (!ctx) return;
+  const cs = cellSize;
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+  // center axis guides
+  ctx.strokeStyle = '#1a2a3a';
+  ctx.lineWidth = 1;
+  const cx = (GRID_COLS / 2) * cs;
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, canvasEl.height); ctx.stroke();
+
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      const px = col * cs, py = row * cs;
+      const part = grid[row][col];
+
+      // cell background
+      ctx.fillStyle = part ? (PART_COLOR[part] || '#4af') : '#0d1320';
+      ctx.fillRect(px + 1, py + 1, cs - 2, cs - 2);
+
+      // grid border
+      ctx.strokeStyle = part ? '#2a4060' : '#1a2030';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
+
+      // part icon (tiny)
+      if (part) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.font = `${Math.floor(cs * 0.4)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const icon = { hull:'▪', cockpit:'●', engine:'▲', weapon:'✦', wing:'◂▸' }[part] || '';
+        ctx.fillText(icon, px + cs / 2, py + cs / 2);
+      }
+
+      // highlight selected part hint border
+      if (part === selectedPart) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(px + 1.5, py + 1.5, cs - 3, cs - 3);
+      }
+    }
+  }
+
+  // highlight center column top
+  ctx.strokeStyle = 'rgba(68,170,255,0.25)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(3 * cs, 0, cs, canvasEl.height);
+}
+
+function getDesignCells() {
+  const cells = [];
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      const part = grid[row][col];
+      if (part) cells.push({ col, row, part });
+    }
+  }
+  return cells;
+}
+
+// Launch button
+document.getElementById('designer-launch-btn').addEventListener('click', () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const cells = getDesignCells();
+  // send join first, then design
+  ws.send(JSON.stringify({ type: 'join', name: pendingName }));
+  if (cells.length > 0) {
+    ws.send(JSON.stringify({ type: 'ship_design', cells }));
+  }
+  joined = true;
+  show('controller-screen');
+  sendInterval = setInterval(sendInput, 33);
+});
 
 // ── Pull-to-refresh ──────────────────────────────────────────────────────────
 const PTR_THRESHOLD = 72;

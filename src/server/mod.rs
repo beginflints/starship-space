@@ -1,4 +1,4 @@
-mod messages;
+pub mod messages;
 mod ws_handler;
 
 pub use messages::{GameEvent, MarketItem, PlayerInput};

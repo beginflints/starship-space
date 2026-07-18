@@ -10,12 +10,14 @@ This project follows a lightweight `Keep a Changelog` style and starts with `0.x
 
 - Shared reinforcement mode with team-wide reserve lives, delayed player respawns, and a no-survivor fail condition.
 - Role draft foundation with `Vanguard`, `Guardian`, and `Salvager` loadouts selected from the host lobby.
+- Ship designer on mobile controllers with a budgeted grid editor (`Hull`, `Cockpit`, `Engine`, `Weapon`, `Wing`); custom designs render on the host screen.
 
 ### Changed
 
 - Host HUD and market view now show team reinforcement status and per-player respawn countdowns.
 - Mobile controller respawn overlay now shows the remaining respawn countdown from live game state.
 - Role choices now change live gameplay through cooldown, HP, invincibility, and salvage-range modifiers.
+- Mobile join flow now routes through the ship designer before entering the controller.
 
 ### Fixed
 

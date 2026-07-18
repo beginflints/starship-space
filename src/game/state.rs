@@ -3,6 +3,7 @@ use qrcode::{Color as QrColor, QrCode};
 use super::bullet::Bullet;
 use super::enemy::{build_wave_queue, Enemy, Pending, SpawnKind};
 use super::item::Item;
+use crate::server::messages::ShipDesign;
 
 // ── Player ───────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,7 @@ pub struct Player {
     pub alive: bool,
     pub respawn_timer: f32,
     pub is_respawning: bool,
+    pub ship_design: Option<ShipDesign>, // custom ship layout จาก phone designer
 }
 
 impl Player {
@@ -137,6 +139,7 @@ impl Player {
             alive: true,
             respawn_timer: 0.0,
             is_respawning: false,
+            ship_design: None,
         }
     }
 }

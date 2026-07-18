@@ -174,6 +174,15 @@ fn drain_inputs(
             continue; // Join message ไม่มี joy/fire ที่ต้องใช้
         }
 
+        // ── บันทึก ship design จาก phone designer ────────────────────────────
+        if let Some(design) = input.ship_design {
+            if let Some(p) = gs.players.iter_mut().find(|p| p.id == input.player_id) {
+                println!("[game] player {} ship design saved ({} cells)", input.player_id, design.cells.len());
+                p.ship_design = Some(design);
+            }
+            continue;
+        }
+
         // ── อัพเดต movement + fire intent ────────────────────────────────────
         if let Some(p) = gs.players.iter_mut().find(|p| p.id == input.player_id) {
             p.connected = true;

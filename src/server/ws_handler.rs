@@ -2,7 +2,7 @@ use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::{broadcast, mpsc};
 
-use crate::server::messages::{ClientMsg, GameEvent, PlayerInput, ServerMsg};
+use crate::server::messages::{ClientMsg, GameEvent, PlayerInput, ServerMsg, ShipDesign};
 
 pub async fn handle_socket(
     socket: WebSocket,
@@ -83,6 +83,7 @@ pub async fn handle_socket(
                         buy_item: None,
                         name: None,
                         disconnect: false,
+                        ship_design: None,
                     }).await;
                 }
                 ClientMsg::Join { name } => {
@@ -94,6 +95,7 @@ pub async fn handle_socket(
                         buy_item: None,
                         name: Some(name),
                         disconnect: false,
+                        ship_design: None,
                     }).await;
                 }
                 ClientMsg::Buy { item } => {
@@ -104,6 +106,19 @@ pub async fn handle_socket(
                         buy_item: Some(item),
                         name: None,
                         disconnect: false,
+                        ship_design: None,
+                    }).await;
+                }
+                ClientMsg::ShipDesign { cells } => {
+                    println!("[ws] player {} sent ship design ({} cells)", player_id, cells.len());
+                    let _ = input_tx.send(PlayerInput {
+                        player_id,
+                        joy: [0.0, 0.0],
+                        fire: false,
+                        buy_item: None,
+                        name: None,
+                        disconnect: false,
+                        ship_design: Some(ShipDesign { cells }),
                     }).await;
                 }
             }
@@ -123,6 +138,7 @@ pub async fn handle_socket(
         buy_item: None,
         name: None,
         disconnect: true,
+        ship_design: None,
     }).await;
 
     println!("[ws] player {} disconnected", player_id);
