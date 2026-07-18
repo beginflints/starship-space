@@ -8,15 +8,18 @@ This project follows a lightweight `Keep a Changelog` style and starts with `0.x
 
 ### Added
 
+- Shared reinforcement mode with team-wide reserve lives, delayed player respawns, and a no-survivor fail condition.
 - Role draft foundation with `Vanguard`, `Guardian`, and `Salvager` loadouts selected from the host lobby.
 
 ### Changed
 
+- Host HUD and market view now show team reinforcement status and per-player respawn countdowns.
+- Mobile controller respawn overlay now shows the remaining respawn countdown from live game state.
 - Role choices now change live gameplay through cooldown, HP, invincibility, and salvage-range modifiers.
 
 ### Fixed
 
-- Placeholder for bug fixes and stability work not released yet.
+- Simultaneous enemy overlaps no longer apply repeated player-hit resolution in the same frame.
 
 ### Docs
 

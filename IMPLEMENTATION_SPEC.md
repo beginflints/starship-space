@@ -517,6 +517,23 @@ pub struct RunSummary {
 
 ## 7. Milestone 3 — Shared Reinforcement Mode
 
+> `Flag (Codex - 2026-03-13):` ✅ **DONE**
+>
+> scope ที่ทำ:
+> - เพิ่ม shared `reinforcements` pool และ player respawn state
+> - เปลี่ยน player death flow ให้ consume reinforcement แล้ว respawn หลัง cooldown
+> - ปรับ `check_game_over()` ให้รอจนทีมหมด reinforcement และไม่มีใครกำลัง respawn
+> - เพิ่ม host HUD reinforcement counter + respawn countdown
+> - เพิ่ม `respawn_seconds` ใน state message เพื่อให้มือถือแสดง countdown overlay
+>
+> ไฟล์ที่แตะ:
+> - `src/game/state.rs`
+> - `src/game/mod.rs`
+> - `src/game/renderer.rs`
+> - `src/server/messages.rs`
+> - `src/server/ws_handler.rs`
+> - `static/index.html`
+
 milestone นี้เริ่มเพิ่ม team dependency มากขึ้น
 ควรทำหลัง `Milestone 1` และ `Milestone 2` เสร็จแล้ว
 

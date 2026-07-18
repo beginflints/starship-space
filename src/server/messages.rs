@@ -38,6 +38,7 @@ pub enum ServerMsg {
         coins: u32,
         weapon_level: u8,
         respawning: bool,
+        respawn_seconds: f32,
     },
 
     /// Event notification (wave start, item pickup, etc.)
@@ -83,6 +84,7 @@ pub enum GameEvent {
         coins: u32,
         weapon_level: u8,
         respawning: bool,
+        respawn_seconds: f32,
     },
     /// Broadcast event message ให้ทุกคน
     Broadcast(String),

@@ -370,7 +370,7 @@
 <!-- Respawn overlay -->
 <div id="respawn-overlay">
   <h2>DEAD</h2>
-  <p>Waiting for reinforcement...</p>
+  <p id="respawn-copy">Waiting for reinforcement...</p>
   <div class="respawn-spinner"></div>
 </div>
 
@@ -455,14 +455,17 @@ function handleServer(msg) {
       document.getElementById('wpn-value').textContent   = `Lv${msg.weapon_level}`;
 
       const respawnOverlay = document.getElementById('respawn-overlay');
+      const respawnCopy = document.getElementById('respawn-copy');
       if (msg.respawning) {
         respawnOverlay.classList.add('show');
+        respawnCopy.textContent = `Waiting for reinforcement... ${Math.ceil(msg.respawn_seconds || 0)}s`;
         if (joyActive) joyEnd();
         firing = false;
         const fireBtn = document.getElementById('fire-btn');
         if (fireBtn) fireBtn.classList.remove('pressed');
       } else {
         respawnOverlay.classList.remove('show');
+        respawnCopy.textContent = 'Waiting for reinforcement...';
       }
 
       if (currentScreen === 'market-screen') {

@@ -25,10 +25,10 @@ pub async fn handle_socket(
     let send_task = tokio::spawn(async move {
         loop {
             match event_rx.recv().await {
-                Ok(GameEvent::PlayerState { player_id: pid, hp, max_hp, score, coins, weapon_level, respawning })
+                Ok(GameEvent::PlayerState { player_id: pid, hp, max_hp, score, coins, weapon_level, respawning, respawn_seconds })
                     if pid == player_id =>
                 {
-                    let msg = ServerMsg::State { hp, max_hp, score, coins, weapon_level, respawning };
+                    let msg = ServerMsg::State { hp, max_hp, score, coins, weapon_level, respawning, respawn_seconds };
                     let json = serde_json::to_string(&msg).unwrap();
                     if ws_tx.send(Message::Text(json.into())).await.is_err() {
                         break;

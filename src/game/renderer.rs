@@ -289,6 +289,27 @@ fn draw_bullets(state: &GameState) {
 
 fn draw_players(state: &GameState) {
     for (i, p) in state.players.iter().enumerate() {
+        let c = PLAYER_COLORS[i % 8];
+
+        if p.is_respawning {
+            draw_circle_lines(p.x, p.y, SHIP_R + 8.0, 2.0, Color::new(c.r, c.g, c.b, 0.45));
+            draw_centered_at(
+                &format!("{} [{}]", p.name, p.role.short_label()),
+                p.x,
+                p.y - SHIP_R - 8.0,
+                15.0,
+                c,
+            );
+            draw_centered(
+                &format!("RESPAWN {:.1}s", p.respawn_timer.max(0.0)),
+                p.x,
+                p.y + SHIP_R + 14.0,
+                16.0,
+                ORANGE,
+            );
+            continue;
+        }
+
         if !p.alive { continue; }
 
         // ถ้า invincible ให้กระพริบ
@@ -297,7 +318,6 @@ fn draw_players(state: &GameState) {
             if blink { continue; }
         }
 
-        let c = PLAYER_COLORS[i % 8];
         let hp_ratio = p.hp as f32 / p.max_hp.max(1) as f32;
 
         if p.hp < p.max_hp {
@@ -342,6 +362,11 @@ fn draw_hud_playing(state: &GameState) {
         20.0, 65.0, 20.0, GRAY,
     );
 
+    draw_text(
+        &format!("Reinforcements: {}/{}", state.reinforcements, state.max_reinforcements),
+        sw - 250.0, 35.0, 24.0, ORANGE,
+    );
+
     // Bottom score bar
     let bar_h = 44.0;
     let y = sh - bar_h;
@@ -354,8 +379,17 @@ fn draw_hud_playing(state: &GameState) {
 
         draw_ship_icon(x + 10.0, y + 14.0, 10.0, c);
 
-        let hp_str: String = "♥".repeat(p.hp as usize);
-        draw_text(&hp_str, x + 26.0, y + 18.0, 14.0, RED);
+        if p.is_respawning {
+            draw_text(
+                &format!("RSP {:.1}", p.respawn_timer.max(0.0)),
+                x + 26.0, y + 18.0, 14.0, ORANGE,
+            );
+        } else if p.alive {
+            let hp_str: String = "♥".repeat(p.hp as usize);
+            draw_text(&hp_str, x + 26.0, y + 18.0, 14.0, RED);
+        } else {
+            draw_text("OUT", x + 26.0, y + 18.0, 14.0, GRAY);
+        }
         draw_text(&format!("{}", p.score), x + 8.0, y + 38.0, 18.0, c);
     }
 }
@@ -378,12 +412,26 @@ fn draw_market(state: &GameState) {
         let x = (i as f32 + 0.5) * col;
         let c = PLAYER_COLORS[i % 8];
 
-        let status = if p.alive { "" } else { " (dead)" };
-        draw_centered(&format!("{}{}", p.name, status), x, sh * 0.36, 20.0, c);
+        let status = if p.is_respawning {
+            format!(" (respawn {:.1}s)", p.respawn_timer.max(0.0))
+        } else if p.alive {
+            "".to_string()
+        } else {
+            " (dead)".to_string()
+        };
+        draw_centered(&format!("{} [{}]{}", p.name, p.role.short_label(), status), x, sh * 0.36, 20.0, c);
         draw_centered(&format!("Coins: {}", p.coins),      x, sh * 0.43, 18.0, YELLOW);
         draw_centered(&format!("HP: {}/{}", p.hp, p.max_hp), x, sh * 0.50, 16.0, RED);
         draw_centered(&format!("Wpn Lv{}", p.weapon_level), x, sh * 0.56, 16.0, SKYBLUE);
     }
+
+    draw_centered(
+        &format!("Team Reinforcements: {}/{}", state.reinforcements, state.max_reinforcements),
+        sw / 2.0,
+        sh * 0.28,
+        22.0,
+        ORANGE,
+    );
 
     // items on screen (dropped but not picked up)
     draw_items(state);

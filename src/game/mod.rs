@@ -20,6 +20,7 @@ const SHIP_SPEED: f32 = 280.0;
 const FIRE_COOLDOWN: f32 = 0.22; // วินาที
 const MARKET_DURATION: f32 = 12.0; // วินาทีที่ market เปิด
 const WAVE_CLEAR_PAUSE: f32 = 2.5;
+const RESPAWN_DURATION: f32 = 3.0;
 
 pub async fn run(
     mut input_rx: mpsc::Receiver<PlayerInput>,
@@ -51,6 +52,7 @@ pub async fn run(
                 update_enemies(&mut gs, dt);
                 resolve_collisions(&mut gs, &event_tx, &audio);
                 update_items(&mut gs, dt, &event_tx, &audio);
+                update_respawns(&mut gs, dt, &event_tx);
                 update_particles(&mut gs, dt);
                 check_wave_complete(&mut gs, dt, &event_tx, &audio);
                 check_game_over(&mut gs, &event_tx, &audio);
@@ -199,7 +201,8 @@ fn drain_inputs(
                             score: gs.players[idx].score,
                             coins: gs.players[idx].coins,
                             weapon_level: gs.players[idx].weapon_level,
-                            respawning: !gs.players[idx].alive,
+                            respawning: gs.players[idx].is_respawning,
+                            respawn_seconds: gs.players[idx].respawn_timer.max(0.0),
                         });
 
                         // ส่ง market offers ที่อัพเดตแล้วกลับไป phone
@@ -209,6 +212,41 @@ fn drain_inputs(
                 }
             }
         }
+    }
+}
+
+fn update_respawns(
+    gs: &mut GameState,
+    dt: f32,
+    event_tx: &broadcast::Sender<GameEvent>,
+) {
+    let mut respawned: Vec<usize> = Vec::new();
+
+    for (idx, player) in gs.players.iter_mut().enumerate() {
+        if !player.is_respawning { continue; }
+
+        player.respawn_timer = (player.respawn_timer - dt).max(0.0);
+        if player.respawn_timer <= 0.0 {
+            respawned.push(idx);
+        }
+    }
+
+    for idx in respawned {
+        let (x, y) = gs.player_spawn_point(idx);
+        let player = &mut gs.players[idx];
+        player.x = x;
+        player.y = y;
+        player.vel_x = 0.0;
+        player.vel_y = 0.0;
+        player.hp = player.max_hp;
+        player.alive = true;
+        player.invincible = player.role.invincibility_seconds();
+        player.firing = false;
+        player.fire_cooldown = 0.0;
+        player.is_respawning = false;
+        player.respawn_timer = 0.0;
+
+        let _ = event_tx.send(GameEvent::Broadcast(format!("{} re-entered the fight!", player.name)));
     }
 }
 
@@ -532,28 +570,54 @@ fn resolve_collisions(gs: &mut GameState, event_tx: &broadcast::Sender<GameEvent
 
     for e in gs.enemies.iter() {
         for (pi, p) in gs.players.iter().enumerate() {
-            if !p.alive || p.invincible > 0.0 { continue; }
+            if !p.alive || p.is_respawning || p.invincible > 0.0 { continue; }
             if circles_overlap(e.x, e.y, e.radius, p.x, p.y, 15.0) {
                 dmg_list.push(pi);
             }
         }
     }
 
+    dmg_list.sort_unstable();
+    dmg_list.dedup();
+
     for pi in dmg_list {
         // copy ค่าที่ต้องใช้ออกก่อน เพื่อหลีกเลี่ยง double-borrow
-        let (px, py, pid) = {
+        let (px, py) = {
             let p = &gs.players[pi];
-            (p.x, p.y, p.id)
+            (p.x, p.y)
         };
 
+        let mut death_broadcast: Option<String> = None;
         {
             let p = &mut gs.players[pi];
             p.hp = p.hp.saturating_sub(1);
             p.invincible = p.role.invincibility_seconds();
             if p.hp == 0 {
                 p.alive = false;
-                let _ = event_tx.send(GameEvent::Broadcast(format!("P{} was destroyed!", pid + 1)));
+                p.vel_x = 0.0;
+                p.vel_y = 0.0;
+                p.firing = false;
+                p.fire_cooldown = 0.0;
+                p.invincible = 0.0;
+
+                if gs.reinforcements > 0 {
+                    gs.reinforcements -= 1;
+                    p.is_respawning = true;
+                    p.respawn_timer = RESPAWN_DURATION;
+                    death_broadcast = Some(format!(
+                        "{} down! Reinforcements {}/{}",
+                        p.name, gs.reinforcements, gs.max_reinforcements
+                    ));
+                } else {
+                    p.is_respawning = false;
+                    p.respawn_timer = 0.0;
+                    death_broadcast = Some(format!("{} was destroyed!", p.name));
+                }
             }
+        }
+
+        if let Some(text) = death_broadcast {
+            let _ = event_tx.send(GameEvent::Broadcast(text));
         }
 
         audio.play_player_hit();
@@ -659,10 +723,14 @@ fn start_next_wave(gs: &mut GameState, event_tx: &broadcast::Sender<GameEvent>, 
 
 fn check_game_over(gs: &mut GameState, event_tx: &broadcast::Sender<GameEvent>, audio: &GameAudio) {
     if gs.players.is_empty() { return; }
-    
+
     let mut is_game_over = false;
-    
-    if gs.players.iter().all(|p| !p.alive) {
+
+    let alive_players = gs.players.iter().filter(|p| p.alive).count();
+    let respawning_players = gs.players.iter().filter(|p| p.is_respawning).count();
+    let no_survivors = alive_players == 0 && respawning_players == 0;
+
+    if no_survivors {
         is_game_over = true;
     } else if gs.is_convoy_mode() {
         if let Some(core) = &gs.convoy_core {
@@ -691,7 +759,8 @@ fn broadcast_player_states(gs: &GameState, event_tx: &broadcast::Sender<GameEven
             score: p.score,
             coins: p.coins,
             weapon_level: p.weapon_level,
-            respawning: !p.alive,
+            respawning: p.is_respawning,
+            respawn_seconds: p.respawn_timer.max(0.0),
         });
     }
 }

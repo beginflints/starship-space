@@ -115,6 +115,8 @@ pub struct Player {
     pub invincible: f32, // วินาทีที่เหลือสำหรับ invincibility หลังโดนตี
     pub firing: bool,    // fire intent จาก phone input
     pub alive: bool,
+    pub respawn_timer: f32,
+    pub is_respawning: bool,
 }
 
 impl Player {
@@ -133,6 +135,8 @@ impl Player {
             invincible: 0.0,
             firing: false,
             alive: true,
+            respawn_timer: 0.0,
+            is_respawning: false,
         }
     }
 }
@@ -250,6 +254,8 @@ pub struct GameState {
     pub last_summary: Option<RunSummary>,
     pub mode: GameMode,          // classic หรือ convoy
     pub convoy_core: Option<ConvoyCore>,
+    pub reinforcements: i32,
+    pub max_reinforcements: i32,
     pub role_draft_cursor: usize,
 }
 
@@ -293,12 +299,20 @@ impl GameState {
             last_summary: None,
             mode: GameMode::Classic,
             convoy_core: None,
+            reinforcements: 5,
+            max_reinforcements: 5,
             role_draft_cursor: 0,
         }
     }
 
     pub fn is_convoy_mode(&self) -> bool {
         self.mode == GameMode::Convoy
+    }
+
+    pub fn player_spawn_point(&self, slot: usize) -> (f32, f32) {
+        let x = self.screen_w / 9.0 * (slot as f32 + 1.0);
+        let y = self.screen_h - 80.0;
+        (x, y)
     }
 
     pub fn connected_count(&self) -> usize {
@@ -372,6 +386,7 @@ impl GameState {
         self.market_timer = 0.0;
         self.market_sent = false;
         self.last_summary = None;
+        self.reinforcements = self.max_reinforcements;
         self.role_draft_cursor = 0;
         if self.mode == GameMode::Convoy {
             self.convoy_core = None;
@@ -398,6 +413,10 @@ impl GameState {
         self.market_timer = 0.0;
         self.market_sent = false;
         self.last_summary = None;
+        self.reinforcements = self.max_reinforcements;
+        if !self.players.is_empty() {
+            self.role_draft_cursor = self.role_draft_cursor.min(self.players.len() - 1);
+        }
         if self.mode == GameMode::Convoy {
             self.convoy_core = None;
         }
@@ -418,6 +437,8 @@ impl GameState {
             p.invincible = 0.0;
             p.firing = false;
             p.alive = true;
+            p.respawn_timer = 0.0;
+            p.is_respawning = false;
             p.connected = true;
         }
     }
