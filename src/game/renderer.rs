@@ -76,6 +76,7 @@ fn draw_lobby(state: &GameState) {
         draw_centered("Mode: CLASSIC", left_cx, sh * 0.81, 24.0, SKYBLUE);
     }
     draw_centered("Press [M] to change mode", left_cx, sh * 0.86, 18.0, GRAY);
+    draw_centered("Role Draft: [LEFT/RIGHT] select  [Q/E] cycle role", left_cx, sh * 0.90, 17.0, LIGHTGRAY);
 
     // ── Right: QR code ───────────────────────────────────────────────────────
     if !state.qr_grid.is_empty() {
@@ -139,7 +140,8 @@ fn draw_lobby(state: &GameState) {
             let x = inner_x + column as f32 * (card_w + gap);
             let y = inner_y + row as f32 * row_h;
             let color = PLAYER_COLORS[player.id as usize % PLAYER_COLORS.len()];
-            draw_lobby_player_row(x, y, card_w, color, player);
+            let selected = idx == state.role_draft_cursor;
+            draw_lobby_player_row(x, y, card_w, color, player, selected);
         }
     }
 }
@@ -305,7 +307,13 @@ fn draw_players(state: &GameState) {
         }
 
         // name tag
-        draw_centered_at(&p.name, p.x, p.y - SHIP_R - 8.0, 15.0, c);
+        draw_centered_at(
+            &format!("{} [{}]", p.name, p.role.short_label()),
+            p.x,
+            p.y - SHIP_R - 8.0,
+            15.0,
+            c,
+        );
     }
 }
 
@@ -594,18 +602,28 @@ fn draw_lobby_player_row(
     w: f32,
     color: Color,
     player: &super::state::Player,
+    selected: bool,
 ) {
-    draw_rectangle(x, y - 16.0, w, 22.0, Color::from_rgba(255, 255, 255, 10));
+    let bg = if selected {
+        Color::from_rgba(68, 170, 255, 28)
+    } else {
+        Color::from_rgba(255, 255, 255, 10)
+    };
+    draw_rectangle(x, y - 16.0, w, 22.0, bg);
+    if selected {
+        draw_rectangle_lines(x, y - 16.0, w, 22.0, 2.0, SKYBLUE);
+    }
     draw_ship_icon(x + 12.0, y - 4.0, 10.0, color);
     draw_text(&player.name, x + 28.0, y, 18.0, color);
+    draw_text(player.role.short_label(), x + w * 0.32, y, 16.0, YELLOW);
 
     let connected_label = if player.connected { "CONNECTED" } else { "OFFLINE" };
     let connected_color = if player.connected { GREEN } else { RED };
     let ready_label = if player.ready { "READY" } else { "JOINING" };
     let ready_color = if player.ready { SKYBLUE } else { ORANGE };
 
-    draw_text(connected_label, x + w * 0.52, y, 16.0, connected_color);
-    draw_text(ready_label, x + w * 0.78, y, 16.0, ready_color);
+    draw_text(connected_label, x + w * 0.54, y, 16.0, connected_color);
+    draw_text(ready_label, x + w * 0.80, y, 16.0, ready_color);
 }
 
 fn draw_summary_card(

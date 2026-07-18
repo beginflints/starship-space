@@ -8,11 +8,11 @@ This project follows a lightweight `Keep a Changelog` style and starts with `0.x
 
 ### Added
 
-- Placeholder for new gameplay features, UX improvements, and protocol additions not released yet.
+- Role draft foundation with `Vanguard`, `Guardian`, and `Salvager` loadouts selected from the host lobby.
 
 ### Changed
 
-- Placeholder for balancing, flow changes, and behavior updates not released yet.
+- Role choices now change live gameplay through cooldown, HP, invincibility, and salvage-range modifiers.
 
 ### Fixed
 

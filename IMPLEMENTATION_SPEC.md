@@ -588,6 +588,19 @@ MVP นี้ยังไม่ต้องมี:
 
 ## 8. Milestone 4 — Role Draft Foundation
 
+> `Flag (Codex - 2026-03-13):` ✅ **DONE**
+>
+> scope ที่ทำ:
+> - เพิ่ม role foundation (`None`, `Vanguard`, `Guardian`, `Salvager`) ใน player state
+> - ให้ host เลือก role จากหน้า lobby ด้วย keyboard (`LEFT/RIGHT` เลือกผู้เล่น, `Q/E` เปลี่ยน role)
+> - ทำ role effects จริงกับ gameplay: fire cooldown, max HP, invincibility window, pickup radius, coin bonus
+> - แสดง role ใกล้ชื่อผู้เล่นบน host screen
+>
+> ไฟล์ที่แตะ:
+> - `src/game/state.rs`
+> - `src/game/mod.rs`
+> - `src/game/renderer.rs`
+
 นี่เป็น multiplier ของ market และ teamwork
 แต่ไม่ควรทำก่อน objective mode
 

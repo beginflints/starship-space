@@ -6,6 +6,95 @@ use super::item::Item;
 
 // ── Player ───────────────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Role {
+    None,
+    Vanguard,
+    Guardian,
+    Salvager,
+}
+
+impl Role {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Role::None => "None",
+            Role::Vanguard => "Vanguard",
+            Role::Guardian => "Guardian",
+            Role::Salvager => "Salvager",
+        }
+    }
+
+    pub fn short_label(&self) -> &'static str {
+        match self {
+            Role::None => "NONE",
+            Role::Vanguard => "VGD",
+            Role::Guardian => "GRD",
+            Role::Salvager => "SLV",
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        match self {
+            Role::None => Role::Vanguard,
+            Role::Vanguard => Role::Guardian,
+            Role::Guardian => Role::Salvager,
+            Role::Salvager => Role::None,
+        }
+    }
+
+    pub fn prev(&self) -> Self {
+        match self {
+            Role::None => Role::Salvager,
+            Role::Vanguard => Role::None,
+            Role::Guardian => Role::Vanguard,
+            Role::Salvager => Role::Guardian,
+        }
+    }
+
+    pub fn base_max_hp(&self) -> u8 {
+        match self {
+            Role::Vanguard => 2,
+            Role::Guardian => 4,
+            Role::Salvager | Role::None => 3,
+        }
+    }
+
+    pub fn fire_cooldown_multiplier(&self) -> f32 {
+        match self {
+            Role::Vanguard => 0.82,
+            Role::Guardian | Role::Salvager | Role::None => 1.0,
+        }
+    }
+
+    pub fn invincibility_seconds(&self) -> f32 {
+        match self {
+            Role::Guardian => 2.8,
+            Role::Vanguard | Role::Salvager | Role::None => 2.0,
+        }
+    }
+
+    pub fn pickup_radius(&self) -> f32 {
+        match self {
+            Role::Salvager => 24.0,
+            Role::Vanguard | Role::Guardian | Role::None => 15.0,
+        }
+    }
+
+    pub fn kill_coin_bonus(&self) -> u32 {
+        match self {
+            Role::Salvager => 2,
+            Role::Vanguard | Role::Guardian | Role::None => 0,
+        }
+    }
+
+    pub fn drop_coin_bonus(&self) -> u32 {
+        match self {
+            Role::Salvager => 8,
+            Role::Vanguard | Role::Guardian | Role::None => 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Player {
     pub id: u8,
@@ -21,6 +110,7 @@ pub struct Player {
     pub score: u32,
     pub coins: u32,
     pub weapon_level: u8,
+    pub role: Role,
     pub fire_cooldown: f32,
     pub invincible: f32, // วินาทีที่เหลือสำหรับ invincibility หลังโดนตี
     pub firing: bool,    // fire intent จาก phone input
@@ -38,6 +128,7 @@ impl Player {
             hp: 3, max_hp: 3,
             score: 0, coins: 0,
             weapon_level: 1,
+            role: Role::None,
             fire_cooldown: 0.0,
             invincible: 0.0,
             firing: false,
@@ -159,6 +250,7 @@ pub struct GameState {
     pub last_summary: Option<RunSummary>,
     pub mode: GameMode,          // classic หรือ convoy
     pub convoy_core: Option<ConvoyCore>,
+    pub role_draft_cursor: usize,
 }
 
 impl GameState {
@@ -201,6 +293,7 @@ impl GameState {
             last_summary: None,
             mode: GameMode::Classic,
             convoy_core: None,
+            role_draft_cursor: 0,
         }
     }
 
@@ -279,6 +372,7 @@ impl GameState {
         self.market_timer = 0.0;
         self.market_sent = false;
         self.last_summary = None;
+        self.role_draft_cursor = 0;
         if self.mode == GameMode::Convoy {
             self.convoy_core = None;
         }
@@ -315,8 +409,8 @@ impl GameState {
             p.y = y;
             p.vel_x = 0.0;
             p.vel_y = 0.0;
-            p.hp = 3;
-            p.max_hp = 3;
+            p.max_hp = p.role.base_max_hp();
+            p.hp = p.max_hp;
             p.score = 0;
             p.coins = 0;
             p.weapon_level = 1;

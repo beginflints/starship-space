@@ -215,6 +215,38 @@ fn drain_inputs(
 // ── Lobby ────────────────────────────────────────────────────────────────────
 
 fn update_lobby(gs: &mut GameState, event_tx: &broadcast::Sender<GameEvent>, audio: &GameAudio) {
+    // ── Role Draft: host เลือกผู้เล่นและสลับ role จาก keyboard ─────────────────
+    if !gs.players.is_empty() {
+        gs.role_draft_cursor = gs.role_draft_cursor.min(gs.players.len() - 1);
+
+        if is_key_pressed(KeyCode::Left) {
+            gs.role_draft_cursor = if gs.role_draft_cursor == 0 {
+                gs.players.len() - 1
+            } else {
+                gs.role_draft_cursor - 1
+            };
+        } else if is_key_pressed(KeyCode::Right) {
+            gs.role_draft_cursor = (gs.role_draft_cursor + 1) % gs.players.len();
+        }
+
+        if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::E) {
+            let player = &mut gs.players[gs.role_draft_cursor];
+            player.role = if is_key_pressed(KeyCode::Q) {
+                player.role.prev()
+            } else {
+                player.role.next()
+            };
+            player.max_hp = player.role.base_max_hp();
+            player.hp = player.max_hp;
+            player.invincible = 0.0;
+            let _ = event_tx.send(GameEvent::Broadcast(format!(
+                "{} role set to {}",
+                player.name,
+                player.role.label()
+            )));
+        }
+    }
+
     if is_key_pressed(KeyCode::M) {
         gs.mode = match gs.mode {
             GameMode::Classic => GameMode::Convoy,
@@ -264,7 +296,7 @@ fn update_players(gs: &mut GameState, dt: f32, audio: &GameAudio) {
 
         // spawn bullets เมื่อ firing และ cooldown หมด
         if p.firing && p.fire_cooldown <= 0.0 {
-            p.fire_cooldown = FIRE_COOLDOWN;
+            p.fire_cooldown = FIRE_COOLDOWN * p.role.fire_cooldown_multiplier();
             let mut bs = Bullet::spawn(p.id, p.x, p.y - 20.0, p.weapon_level);
             if !bs.is_empty() {
                 audio.play_shoot();
@@ -393,7 +425,7 @@ fn update_items(gs: &mut GameState, dt: f32, event_tx: &broadcast::Sender<GameEv
         if !item.alive { continue; }
         for (pi, p) in gs.players.iter().enumerate() {
             if !p.alive { continue; }
-            if circles_overlap(item.x, item.y, item.radius, p.x, p.y, 15.0) {
+            if circles_overlap(item.x, item.y, item.radius, p.x, p.y, p.role.pickup_radius()) {
                 pickups.push((ii, pi));
                 break;
             }
@@ -405,24 +437,24 @@ fn update_items(gs: &mut GameState, dt: f32, event_tx: &broadcast::Sender<GameEv
         gs.items[ii].alive = false;
 
         let p = &mut gs.players[pi];
-        match kind {
+        let pickup_label = match kind {
             ItemKind::HpUp => {
                 if p.hp < p.max_hp { p.hp += 1; }
+                "+HP".to_string()
             }
             ItemKind::WeaponUp => {
                 if p.weapon_level < 5 { p.weapon_level += 1; }
+                "weapon up".to_string()
             }
             ItemKind::CoinBoost => {
-                p.coins += 20;
+                let coins = 20 + p.role.drop_coin_bonus();
+                p.coins += coins;
+                format!("+{} coins", coins)
             }
-        }
+        };
 
         let pid = p.id;
-        let msg = match kind {
-            ItemKind::HpUp      => format!("P{} +HP!", pid + 1),
-            ItemKind::WeaponUp  => format!("P{} weapon up!", pid + 1),
-            ItemKind::CoinBoost => format!("P{} +20 coins!", pid + 1),
-        };
+        let msg = format!("P{} {}!", pid + 1, pickup_label);
         audio.play_pickup();
         let _ = event_tx.send(GameEvent::Broadcast(msg));
     }
@@ -479,7 +511,7 @@ fn resolve_collisions(gs: &mut GameState, event_tx: &broadcast::Sender<GameEvent
             // ให้ score + coins กับเจ้าของกระสุน
             if let Some(p) = gs.players.iter_mut().find(|p| p.id == h.owner_id) {
                 p.score += sv;
-                p.coins += cv;
+                p.coins += cv + p.role.kill_coin_bonus();
             }
 
             // drop item
@@ -517,7 +549,7 @@ fn resolve_collisions(gs: &mut GameState, event_tx: &broadcast::Sender<GameEvent
         {
             let p = &mut gs.players[pi];
             p.hp = p.hp.saturating_sub(1);
-            p.invincible = 2.0;
+            p.invincible = p.role.invincibility_seconds();
             if p.hp == 0 {
                 p.alive = false;
                 let _ = event_tx.send(GameEvent::Broadcast(format!("P{} was destroyed!", pid + 1)));
