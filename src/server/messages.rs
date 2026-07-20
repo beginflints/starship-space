@@ -122,3 +122,124 @@ pub enum GameEvent {
     /// ส่ง market offers ให้ player คนนี้ (ครั้งเดียวตอน Market phase เริ่ม)
     SendMarket { player_id: u8, items: Vec<MarketItem> },
 }
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    // ── ClientMsg: deserialize from JSON (untrusted network boundary) ──────────
+
+    #[test]
+    fn deserialize_join() {
+        let msg: ClientMsg =
+            serde_json::from_str(r#"{"type":"join","name":"Alice"}"#).unwrap();
+        match msg {
+            ClientMsg::Join { name } => assert_eq!(name, "Alice"),
+            other => panic!("expected Join, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn deserialize_input() {
+        let msg: ClientMsg = serde_json::from_str(
+            r#"{"type":"input","joy":[0.5,-0.3],"fire":true}"#,
+        )
+        .unwrap();
+        match msg {
+            ClientMsg::Input { joy, fire } => {
+                assert_eq!(joy, [0.5, -0.3]);
+                assert!(fire);
+            }
+            other => panic!("expected Input, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn deserialize_buy() {
+        let msg: ClientMsg =
+            serde_json::from_str(r#"{"type":"buy","item":"weapon_up"}"#).unwrap();
+        match msg {
+            ClientMsg::Buy { item } => assert_eq!(item, "weapon_up"),
+            other => panic!("expected Buy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn deserialize_ship_design() {
+        let msg: ClientMsg = serde_json::from_str(
+            r#"{"type":"ship_design","cells":[{"col":3,"row":1,"part":"cockpit"}]}"#,
+        )
+        .unwrap();
+        match msg {
+            ClientMsg::ShipDesign { cells } => {
+                assert_eq!(cells.len(), 1);
+                assert_eq!(cells[0].col, 3);
+                assert_eq!(cells[0].row, 1);
+                assert_eq!(cells[0].part, ShipPart::Cockpit);
+            }
+            other => panic!("expected ShipDesign, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn deserialize_rejects_unknown_type() {
+        let result: Result<ClientMsg, _> =
+            serde_json::from_str(r#"{"type":"foo","x":1}"#);
+        assert!(result.is_err(), "type ที่ไม่รู้จักต้อง error");
+    }
+
+    #[test]
+    fn deserialize_rejects_missing_required_field() {
+        // Join ต้องมี name
+        let result: Result<ClientMsg, _> =
+            serde_json::from_str(r#"{"type":"join"}"#);
+        assert!(result.is_err(), "field ที่จำเป็นหายไปต้อง error");
+    }
+
+    // ── ShipPart: snake_case round-trip ───────────────────────────────────────
+
+    #[test]
+    fn ship_part_snake_case_round_trip() {
+        for (part, expected_str) in [
+            (ShipPart::Hull, "hull"),
+            (ShipPart::Cockpit, "cockpit"),
+            (ShipPart::Engine, "engine"),
+            (ShipPart::Weapon, "weapon"),
+            (ShipPart::Wing, "wing"),
+        ] {
+            let s = serde_json::to_string(&part).unwrap();
+            assert_eq!(s, format!("\"{expected_str}\""));
+            let back: ShipPart = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, part);
+        }
+    }
+
+    // ── ServerMsg::State: serialize shape (phone contract) ────────────────────
+
+    #[test]
+    fn state_message_serializes_all_fields_phone_relies_on() {
+        let msg = ServerMsg::State {
+            hp: 2,
+            max_hp: 3,
+            score: 1500,
+            coins: 45,
+            weapon_level: 2,
+            respawning: false,
+            respawn_seconds: 0.0,
+        };
+        let json: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&msg).unwrap()).unwrap();
+
+        assert_eq!(json["type"], "state");
+        assert_eq!(json["hp"], 2);
+        assert_eq!(json["max_hp"], 3);
+        assert_eq!(json["score"], 1500);
+        assert_eq!(json["coins"], 45);
+        assert_eq!(json["weapon_level"], 2);
+        assert_eq!(json["respawning"], false);
+        assert_eq!(json["respawn_seconds"], 0.0);
+    }
+}

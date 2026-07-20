@@ -28,6 +28,10 @@ This project follows a lightweight `Keep a Changelog` style and starts with `0.x
 - Reconciled `SUMMARY.md`, `IMPLEMENTATION_SPEC.md`, `TEAMWORK_MODES.md`, `Plan.md`, and `GAME_JOURNEY.md` with the shipped M3/M4/Ship Designer features (protocol tables, role stat table, Game Flow, debug keys, phase status, and stale proposal sections).
 - Added repository workflow rules in `AGENTS.md`, including changelog-update expectations for future changes.
 
+### Tests
+
+- Unit test coverage for market purchase/offers logic (`apply_purchase`, `get_offers`) and WebSocket message (de)serialization (`ClientMsg`, `ShipPart`, `ServerMsg::State`).
+
 ## [0.1.0] - 2026-03-12
 
 ### Added
