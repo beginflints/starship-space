@@ -146,8 +146,10 @@ market ต้องไม่ใช่เมนูธรรมดา แต่เ
 1. จอใหญ่ขึ้น title + QR + คำสั้นๆ เช่น `Scan to Join`
 2. มือถือเปิดแล้วเจอหน้า join ที่มีชื่อเกมชัด
 3. กรอกชื่อและเข้า slot ทันที
-4. จอใหญ่แสดงรายชื่อ/สี/ตำแหน่งผู้เล่นที่ join แล้ว
-5. ทุกคนลองขยับ joystick ได้ใน lobby เพื่อทดสอบ input
+4. หลังพิมพ์ชื่อและกด `JOIN` มือถือเข้าสู่หน้า **ship designer** (grid 7x9, palette Hull/Cockpit/Engine/Weapon/Wing, budget 20 คะแนน) ก่อนขึ้น controller — ยานที่ออกแบบจะไป render บนจอ host
+5. จอใหญ่แสดงรายชื่อ/สี/ตำแหน่งผู้เล่นที่ join แล้ว
+6. **host-driven role draft**: host ใช้ `LEFT/RIGHT` เลือกผู้เล่น และ `Q/E` สลับ role (`None/Vanguard/Guardian/Salvager`) เพื่อให้แต่ละนักบินมี identity ก่อนเริ่มแมตช์
+7. ทุกคนลองขยับ joystick ได้ใน lobby เพื่อทดสอบ input
 
 ข้อเสนอสำหรับโปรเจคนี้:
 
@@ -358,6 +360,10 @@ boss ที่เหมาะกับเกมนี้ควรอ่านง
 - market economy พื้นฐานมีแล้วใน [`src/game/market.rs`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/src/game/market.rs)
 - mobile controller base พร้อมใน [`static/index.html`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/static/index.html)
 - enemy escalation พื้นฐานมีแล้วใน [`src/game/enemy.rs`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/src/game/enemy.rs)
+- convoy / escort mode พร้อม team core ที่ต้องป้องกัน
+- shared reinforcement pool พร้อม respawn แบบมีดีเลย์ (lives ระดับทีม)
+- role draft (`Vanguard / Guardian / Salvager`) ที่มีผลต่อ gameplay
+- mobile ship designer พร้อม rendering ฝั่ง host ตามยานที่ผู้เล่นออกแบบ
 
 สรุปคือโปรเจคนี้ไม่ได้เริ่มจากศูนย์แล้ว
 สิ่งที่ขาดไม่ใช่ core loop แต่คือ "journey polish" และ "session identity"

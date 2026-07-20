@@ -76,14 +76,16 @@ Game001/
 │   │   └── messages.rs          ← ทุก message type (ดูรายละเอียดด้านล่าง)
 │   └── game/
 │       ├── mod.rs               ← game loop หลัก: drain inputs → update → draw
-│       ├── state.rs             ← GameState, Player, WaveState, Particle structs
+│       ├── state.rs             ← GameState, Player, Role, WaveState, ConvoyCore, RunSummary, Particle
 │       ├── bullet.rs            ← Bullet struct + spawn (weapon level 1/3/5-way spread)
 │       ├── enemy.rs             ← Enemy (Basic/Fast/Tank) + build_wave_queue per wave
 │       ├── item.rs              ← Item drops (HpUp/WeaponUp/CoinBoost) + roll_drop()
 │       ├── market.rs            ← get_offers() + apply_purchase() ช่วง Market phase
-│       └── renderer.rs          ← Macroquad draw calls ทั้งหมด
+│       ├── effects.rs           ← damage stages + weapon fx tables (data-driven)
+│       ├── audio.rs             ← procedural sound effects
+│       └── renderer.rs          ← Macroquad draw calls ทั้งหมด (รวม ship designer render)
 └── static/
-    └── index.html               ← Single-file mobile controller (no framework, vanilla JS)
+    └── index.html               ← Single-file mobile controller + ship designer (vanilla JS)
 ```
 
 ---
@@ -93,9 +95,14 @@ Game001/
 ### Phone → Server (`ClientMsg`)
 
 ```jsonc
-{ "type": "join",  "name": "Pilot1" }            // เข้าร่วม game
+{ "type": "join",  "name": "Pilot1" }            // เข้าร่วม game (ส่งตอน LAUNCH)
 { "type": "input", "joy": [0.5, -0.3], "fire": true }  // ~30Hz
 { "type": "buy",   "item": "weapon_up" }          // ซื้อ upgrade ใน Market phase
+{ "type": "ship_design", "cells": [               // ส่ง ship design จาก mobile designer
+    { "col": 3, "row": 1, "part": "cockpit" },
+    { "col": 3, "row": 6, "part": "engine" }
+  ]
+}
 ```
 
 ### Server → Phone (`ServerMsg`)
@@ -103,7 +110,10 @@ Game001/
 ```jsonc
 { "type": "joined", "player_id": 0, "slot": 0 }  // ยืนยัน join
 { "type": "full" }                                 // server เต็ม
-{ "type": "state",  "hp": 2, "max_hp": 3, "score": 1500, "coins": 45, "weapon_level": 2 }
+{ "type": "state",
+  "hp": 2, "max_hp": 3, "score": 1500, "coins": 45, "weapon_level": 2,
+  "respawning": false, "respawn_seconds": 0.0      // respawn state สำหรับ overlay
+}
 { "type": "event",  "msg": "Wave 3 — GO!" }        // notification
 { "type": "market", "items": [                     // เริ่ม Market phase
     { "id": "weapon_up", "name": "Weapon Lv2", "description": "...", "cost": 40 },
@@ -113,16 +123,19 @@ Game001/
 }
 ```
 
+
 ---
 
 ## Game Flow (Phase System)
 
 ```
-Lobby
-  │  [SPACE] + มีผู้เล่นอย่างน้อย 1 คน
+Lobby ──── host: [M] change mode, [LEFT/RIGHT] + [Q/E] role draft
+  │   phone: join → ship designer → LAUNCH
+  │  [SPACE] + มีผู้เล่นอย่างน้อย 1 คนที่ ready
   ▼
 Playing ──── (enemies spawn จาก pending queue ทีละตัวตาม spawn_interval)
   │              ↕ bullets, collisions, particles, item drops
+  │              player ตาย → consume reinforcement → respawn หลัง 3s cooldown
   │  enemies หมด + clear_timer หมด (2.5s)
   ▼
 Market ──── market_timer = 12 วินาที
@@ -132,10 +145,12 @@ Market ──── market_timer = 12 วินาที
   ▼
 Playing (wave ถัดไป)
   │
-  │  players ทุกคน hp = 0
+  │  ไม่มี survivor และ reinforcements = 0
+  │  (หรือ convoy core แตก)
   ▼
 GameOver ──── [R] to restart
              [SPACE] quick replay with same roster
+             [M] change mode
              recap panel shows wave / leaders / pilot standings
 ```
 
@@ -144,9 +159,41 @@ GameOver ──── [R] to restart
 ## Game Systems ที่ implement แล้ว
 
 ### Player
-- `id`, `x/y`, `vel_x/vel_y` (จาก joystick), `hp`, `max_hp`, `score`, `coins`, `weapon_level`
+- `id`, `name`, `connected`, `ready`, `x/y`, `vel_x/vel_y` (จาก joystick), `hp`, `max_hp`, `score`, `coins`, `weapon_level`
+- `role: Role` — role ที่ host เลือกจาก lobby (ดู Role Draft ด้านล่าง)
 - `firing: bool` — fire intent จาก phone input (ไม่ใช่ fire_cooldown hack)
-- `invincible: f32` — invincibility frames หลังโดนตี (2 วินาที)
+- `invincible: f32` — invincibility window หลังโดนตี (scaling ตาม role)
+- `respawn_timer: f32`, `is_respawning: bool` — respawn state หลังตาย (ดู Shared Reinforcement)
+- `ship_design: Option<ShipDesign>` — custom ship layout จาก mobile designer (ดู Ship Designer)
+
+### Role Draft (M4)
+- Host เลือก player และสลับ role จาก lobby: `[LEFT/RIGHT]` เลือก player, `[Q/E]` cycle role
+- Role ส่งผลกับ gameplay จริงทันทีผ่าน stat modifiers:
+
+| Role | max HP | fire cooldown | invincibility | pickup radius | kill coin | drop coin |
+|------|--------|---------------|---------------|---------------|-----------|-----------|
+| `None` | 3 | 1.0× | 2.0s | 15.0 | +0 | +0 |
+| `Vanguard` | 2 | 0.82× (เร็วกว่า) | 2.0s | 15.0 | +0 | +0 |
+| `Guardian` | 4 | 1.0× | 2.8s | 15.0 | +0 | +0 |
+| `Salvager` | 3 | 1.0× | 2.0s | 24.0 (กว้างกว่า) | +2 | +8 |
+
+- role short label (`VGD`/`GRD`/`SLV`/`NONE`) แสดงใกล้ชื่อบน host screen
+
+### Shared Reinforcement Mode (M3)
+- ทีมมี `reinforcements` pool ร่วมกัน (`max_reinforcements = 5`)
+- player ตาย:
+  - ถ้า `reinforcements > 0` → ลด 1, เข้าสถานะ `is_respawning`, respawn หลัง `RESPAWN_DURATION = 3.0s` ที่จุดปลอดภัย
+  - ถ้า `reinforcements == 0` → ตายถาวร (`alive = false`, ไม่ respawn)
+- Game Over เกิดเมื่อ **`alive == 0 && respawning == 0`** (no-survivor rule)
+- Host HUD: `Reinforcements: X/Y` มุมขวาบน + respawn countdown ใต้ชื่อผู้เล่น/ใน score bar
+- Mobile: `respawning` + `respawn_seconds` ใน state message ขับ respawn overlay ที่แสดง countdown
+- enemy overlap hits dedup (`dmg_list.sort_unstable(); dedup()`) ป้องกันการลด HP หลายครั้งใน frame เดียวกัน
+
+### Ship Designer
+- Mobile designer ระหว่าง join และ controller: grid 7×9, palette 5 part (`hull`, `cockpit`, `engine`, `weapon`, `wing`) + erase
+- Budget cap = 20 points, part cost: hull=1, cockpit=3, engine=2, weapon=3, wing=1; cockpit cap ที่ 1 ชิ้น
+- Seed default ship ให้ไม่ว่างเปล่า; design persist ระหว่าง re-open
+- Launch ส่ง `join` แล้วตามด้วย `ship_design`; design ถูก render บน host (`draw_ship_from_design`) พร้อม damage overlay (`draw_ship_design_damaged`)
 
 ### Enemies (3 types)
 | Type | Shape | HP | Speed | Special |
@@ -192,15 +239,17 @@ GameOver ──── [R] to restart
 
 ## Debug Keys (dev build เท่านั้น)
 
-| Key | ผล |
-|-----|-----|
-| `D` | เพิ่ม dummy player |
-| `K` | ฆ่า enemy ทั้งหมด (skip wave) |
-| `Space` | เริ่มเกม (Lobby phase) |
-| `Space` | quick replay (GameOver phase) |
-| `Enter` | skip Market timer |
-| `R` | return to lobby (GameOver phase) |
-| `M` | change mode and return to lobby (GameOver phase) |
+| Key | Phase | ผล |
+|-----|-------|-----|
+| `D` | Lobby | เพิ่ม dummy player |
+| `K` | Playing | ฆ่า enemy ทั้งหมด (skip wave) |
+| `Space` | Lobby | เริ่มเกม (ต้องมีผู้เล่นอย่างน้อย 1 คนที่ ready) |
+| `Space` | GameOver | quick replay (preserve roster + mode) |
+| `Enter` | Market | skip Market timer |
+| `R` | GameOver | return to lobby (preserve roster) |
+| `M` | Lobby / GameOver | change mode (Classic ↔ Convoy) |
+| `LEFT/RIGHT` | Lobby | เลื่อน role draft cursor ไปยัง player ตัวถัดไป/ก่อนหน้า |
+| `Q` / `E` | Lobby | cycle role ของ player ที่เลือก (reverse / forward) |
 
 ---
 
@@ -265,9 +314,16 @@ cargo run
 
 ## สถานะ Phase การพัฒนา
 
-| Phase | สถานะ | สิ่งที่ทำ |
-|-------|-------|---------|
+| Phase / Milestone | สถานะ | สิ่งที่ทำ |
+|-------------------|-------|---------|
 | Phase 1 | ✅ Done | WebSocket server, Mobile controller UI, Channel architecture |
 | Phase 2 | ✅ Done | Bullets, Enemies, Wave system, Collision, Particles |
 | Phase 3 | ✅ Done | Item drops, Market phase, Weapon/HP upgrades, Market UI บนมือถือ |
-| Phase 4 | 🔲 Next | Sound effects, Visual polish, High score, Reconnect handling |
+| M0 Stabilize | ✅ Done | Explicit join/disconnect lifecycle, lobby roster polish, market sync |
+| M1 Convoy | ✅ Done | Convoy core + fail condition + HUD |
+| M2 Game Over Recap | ✅ Done | Recap panel, quick replay, lobby return, mode switch |
+| M3 Shared Reinforcement | ✅ Done | Team reinforcements pool, respawn with countdown, no-survivor game over |
+| M4 Role Draft | ✅ Done | Vanguard / Guardian / Salvager roles with stat modifiers |
+| Ship Designer | ✅ Done | Mobile grid editor + host rendering of custom ship layouts |
+| M5 Command Relay | 🔲 Next | Commander + ping system + asymmetrical info (risky: touches protocol) |
+| Polish | 🔲 Later | Sound effects polish, reconnect, high score |

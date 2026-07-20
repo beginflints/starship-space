@@ -25,6 +25,7 @@ This project follows a lightweight `Keep a Changelog` style and starts with `0.x
 
 ### Docs
 
+- Reconciled `SUMMARY.md`, `IMPLEMENTATION_SPEC.md`, `TEAMWORK_MODES.md`, `Plan.md`, and `GAME_JOURNEY.md` with the shipped M3/M4/Ship Designer features (protocol tables, role stat table, Game Flow, debug keys, phase status, and stale proposal sections).
 - Added repository workflow rules in `AGENTS.md`, including changelog-update expectations for future changes.
 
 ## [0.1.0] - 2026-03-12

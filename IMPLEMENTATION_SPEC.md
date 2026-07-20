@@ -75,16 +75,17 @@
 
 ### Network contract ตอนนี้เล็กมาก
 
-มือถือส่งได้แค่:
+มือถือส่งได้:
 
 - `join`
 - `input`
 - `buy`
+- `ship_design` *(เพิ่มใน Ship Designer)*
 
-มือถือรับได้แค่:
+มือถือรับได้:
 
 - `joined`
-- `state`
+- `state` *(มี `respawning`, `respawn_seconds`)*
 - `event`
 - `market`
 
@@ -125,12 +126,13 @@
 
 ลำดับแนะนำ:
 
-1. `Milestone 0` Stabilize current prototype
-2. `Milestone 1` Convoy / Escort Mode MVP
-3. `Milestone 2` Game Over Recap + Fast Replay
-4. `Milestone 3` Shared Reinforcement Mode
-5. `Milestone 4` Role Draft Foundation
-6. `Milestone 5` Command Relay Exploration
+1. ✅ `Milestone 0` Stabilize current prototype — done
+2. ✅ `Milestone 1` Convoy / Escort Mode MVP — done
+3. ✅ `Milestone 2` Game Over Recap + Fast Replay — done
+4. ✅ `Milestone 3` Shared Reinforcement Mode — done
+5. ✅ `Milestone 4` Role Draft Foundation — done
+6. ✅ `Ship Designer` (bonus feature ระหว่าง M3 กับ M5) — done
+7. 🔲 `Milestone 5` Command Relay Exploration — **next**
 
 สิ่งสำคัญ:
 
@@ -587,14 +589,11 @@ MVP นี้ยังไม่ต้องมี:
 
 ใน [`src/server/messages.rs`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/src/server/messages.rs):
 
-- อาจเพิ่ม field ใน `State` เช่น:
-  - `alive`
-  - `respawning`
-  - `respawn_seconds`
+> `Flag (Codex - 2026-03-13):` ✅ shipped — `State` มี `respawning` และ `respawn_seconds` (ไม่มี `alive` แยกต่างหาก เพราะฝั่งมือถือ derive จากสองค่านี้ได้)
 
 ใน [`static/index.html`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/static/index.html):
 
-- แสดง overlay `RESPAWNING`
+- แสดง overlay `RESPAWNING` พร้อม countdown จาก `respawn_seconds`
 
 ## 7.5 Acceptance Criteria
 
@@ -628,22 +627,31 @@ MVP นี้ยังไม่ต้องมี:
 
 ## 8.1 MVP Roles
 
-แนะนำ 3 role ก่อน:
+แนะนำ 3 role + `None` เป็น default (รวม 4 ค่าใน enum):
+
+> `Flag (Codex - 2026-03-13):` ✅ shipped modifiers (เลขจริงจาก `src/game/state.rs`)
+
+| Role | base_max_hp | fire_cooldown_multiplier | invincibility_seconds | pickup_radius | kill_coin_bonus | drop_coin_bonus |
+|------|-------------|--------------------------|-----------------------|---------------|-----------------|-----------------|
+| `None` | 3 | 1.0× | 2.0s | 15.0 | 0 | 0 |
+| `Vanguard` | 2 | 0.82× (ยิงเร็วกว่า) | 2.0s | 15.0 | 0 | 0 |
+| `Guardian` | 4 | 1.0× | 2.8s (นานกว่า) | 15.0 | 0 | 0 |
+| `Salvager` | 3 | 1.0× | 2.0s | 24.0 (กว้างกว่า) | 2 | 8 |
 
 ### Vanguard
 
-- ยิงแรงขึ้นเล็กน้อย หรือ fire cooldown ดีขึ้นเล็กน้อย
-- hp ต่ำลงเล็กน้อย
+- ยิงเร็วกว่า (fire cooldown 0.82×)
+- hp ต่ำลง (base 2)
 
 ### Guardian
 
-- max hp มากขึ้น 1
-- invincibility หลังโดนตีเพิ่มเล็กน้อย
+- max hp มากขึ้นเป็น 4
+- invincibility หลังโดนตีนานขึ้นเป็น 2.8s
 
 ### Salvager
 
-- เก็บ coin/drop ได้จากระยะไกลขึ้น
-- ได้ coins ต่อ drop เพิ่มเล็กน้อย
+- pickup radius กว้างขึ้นเป็น 24.0
+- ได้ +2 coins ต่อ kill และ +8 coins ต่อ CoinBoost drop
 
 ## 8.2 Data Model
 
@@ -658,18 +666,71 @@ pub enum Role {
 }
 ```
 
+แต่ละ role มี stat modifiers ผูกเป็น methods บน `Role` (`base_max_hp`, `fire_cooldown_multiplier`, `invincibility_seconds`, `pickup_radius`, `kill_coin_bonus`, `drop_coin_bonus`) — ดูตัวเลขจริงในตาราง 8.1
+
 ## 8.3 UI Recommendation
 
-สำหรับ MVP:
-
-- เลือก role จาก host screen ด้วย keyboard หรือรอบแรกตั้ง default ให้ทุกคน `None`
-- ถ้าจะให้มือถือเลือก role ค่อยทำใน milestone ถัดไป
+> `Flag (Codex - 2026-03-13):` ✅ shipped — host เลือก role จาก lobby ด้วย keyboard:
+> - `[LEFT/RIGHT]` เลื่อน cursor ไปยัง player
+> - `[Q]` cycle role ย้อนกลับ, `[E]` cycle role ไปข้างหน้า
+> - default ของผู้เล่นใหม่คือ `Role::None`
+> - ถ้าจะให้มือถือเลือก role ค่อยทำใน milestone ถัดไป
 
 ## 8.4 Acceptance Criteria
 
 - role ต้องส่งผลกับ gameplay จริง
 - role ต้องแสดงใกล้ชื่อผู้เล่น
 - market และ score loop ต้องไม่พัง
+
+## 8.5 Ship Designer (bonus feature)
+
+> `Flag (2026-07-20):` ✅ **DONE** — feature แทรกระหว่าง M4 กับ M5
+
+เป้าหมาย:
+
+- ให้ผู้เล่นออกแบบยานของตัวเองจากมือถือก่อนเข้าเล่น
+- design ปรากฏบนจอใหญ่แทน sprite default
+- ไม่ขยาย gameplay loop ที่มีอยู่
+
+### Data Model (`src/server/messages.rs`)
+
+```rust
+pub struct ShipCell { pub col: u8, pub row: u8, pub part: ShipPart }
+pub enum ShipPart { Hull, Cockpit, Engine, Weapon, Wing }
+pub struct ShipDesign { pub cells: Vec<ShipCell> }
+
+// ClientMsg เพิ่ม:
+ShipDesign { cells: Vec<ShipCell> }
+
+// PlayerInput เพิ่ม field:
+pub ship_design: Option<ShipDesign>
+```
+
+`Player.ship_design: Option<ShipDesign>` เก็บ design ที่ได้รับ; persist ระหว่าง quick replay
+
+### Mobile Designer (`static/index.html`)
+
+- grid 7×9, cell `(3,4)` = ship center, row 0 = nose, row 8 = engine
+- palette: `hull`(1pt), `cockpit`(3pt, cap 1), `engine`(2pt), `weapon`(3pt), `wing`(1pt) + erase
+- budget cap = 20 points
+- flow: join screen → designer → LAUNCH (ส่ง `join` แล้วตามด้วย `ship_design`)
+- seed default ship ถ้า grid ว่าง; preserve design บน re-open
+
+### Host Rendering (`src/game/renderer.rs`)
+
+- `draw_ship_from_design()` — วาดจาก cell grid (cell size = 5.5px), color ตาม part type
+- `draw_ship_design_damaged()` — overlay aura/cockpit/cracks จาก `effects::damage_stage()`
+- ถ้า `ship_design` ว่าง → ใช้ sprite default (`draw_ship` / `draw_ship_damaged`)
+
+### Files Touched
+
+- `src/server/messages.rs` — ShipDesign types + ClientMsg variant + PlayerInput field
+- `src/server/mod.rs` — `pub mod messages` (เปิดให้ game crate เข้าถึง ShipPart)
+- `src/server/ws_handler.rs` — handle `ClientMsg::ShipDesign`
+- `src/game/state.rs` — `Player.ship_design`
+- `src/game/mod.rs` — `drain_inputs` รับ design
+- `src/game/renderer.rs` — draw helpers + integration ใน `draw_players`
+- `static/index.html` — designer screen + JS
 
 ## 9. Milestone 5 — Command Relay Exploration
 
@@ -710,14 +771,15 @@ MVP ที่เล็กที่สุด:
   - `role_assignment`
   - `commander_alert`
 
-ตัวอย่าง:
+ตัวอย่าง (base ปัจจุบันมี `ShipDesign` และ `State` มี `respawning/respawn_seconds` อยู่แล้ว):
 
 ```rust
 pub enum ClientMsg {
     Join { name: String },
     Input { joy: [f32; 2], fire: bool },
     Buy { item: String },
-    Ping { lane: PingLane },
+    ShipDesign { cells: Vec<ShipCell> },   // มีอยู่แล้ว
+    Ping { lane: PingLane },               // ← เพิ่มใน M5
 }
 ```
 
@@ -727,11 +789,11 @@ pub enum ClientMsg {
 pub enum ServerMsg {
     Joined { player_id: u8, slot: u8 },
     Full,
-    State { ... },
+    State { hp, max_hp, score, coins, weapon_level, respawning, respawn_seconds, ... },  // respawn fields มีอยู่แล้ว
     Event { msg: String },
     Market { items: Vec<MarketItem> },
-    RoleAssignment { role: String },
-    CommanderAlert { code: String, text: String },
+    RoleAssignment { role: String },         // ← เพิ่มใน M5
+    CommanderAlert { code: String, text: String },  // ← เพิ่มใน M5
 }
 ```
 
@@ -1060,18 +1122,16 @@ definition of done:
 
 ## 14. Immediate Recommendation
 
-ถ้าจะเริ่มลงมือจริงตอนนี้ ให้เริ่มตามลำดับนี้:
+> `Status note (2026-07-20):` M0–M4 + Ship Designer **ทำเสร็จแล้วทั้งหมด**
 
-1. `Milestone 0`
-2. `Milestone 1`
-3. `Milestone 2`
+งานที่เหลืออยู่ตอนนี้คือเลือกทางเดินระหว่าง:
 
-อย่าเพิ่งเริ่ม `Milestone 5`
+1. **Playtest + polish** — เก็บ sound effects, reconnect, high score ก่อนเปิดตัว feature ใหม่
+2. **`Milestone 5` Command Relay** — เริ่มได้เลยถ้า core loop นิ่งพอ แต่เป็น milestone ที่เสี่ยงสุด (แตะ protocol + server + state + mobile UI + UX พร้อมกัน) ควรทำทีละ sub-feature ไม่เปิดหลายจุดพร้อมกัน
 
-ถ้าทีม AI จะรับงานต่อ:
+ถ้าทีม AI จะรับงาน M5 ต่อ:
 
-- agent แรกควรทำ lifecycle + market sync
-- agent ที่สองควรทำ convoy core logic
-- agent ที่สามควรทำ renderer / recap screen
-
-หลังจาก 3 ส่วนนี้เสร็จแล้ว ค่อยตัดสินใจว่าจะไป `Shared Reinforcement` หรือหยุด playtest ก่อน
+- agent แรกควรทำ protocol (`messages.rs` + `ws_handler.rs`) ก่อน
+- agent ที่สองควรทำ game state (commander rotation, ping rendering)
+- agent ที่สามควรทำ mobile UI (ping buttons, commander alert)
+- รวมเข้าด้วยกันทีละขั้นตามลำดับ merge ใน section 10.2

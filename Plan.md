@@ -2,6 +2,14 @@
 
 เอกสารนี้สรุปประเด็นสำคัญที่พบจากการวิเคราะห์ codebase ปัจจุบัน และลำดับงานที่ควรทำต่อเพื่อให้เกมพร้อมใช้งานมากขึ้น
 
+> `Status Note (2026-07-20):` เอกสารนี้เขียนขึ้นตอนโปรเจคยังไม่นิ่ง ขณะนี้ **Priority Findings ทั้งหมดในเอกสารฉบับนี้ได้รับการแก้ไขเรียบร้อยแล้ว** ได้แก่ disconnect handling, join flow, player name, และ market sync (สถานะถูกต้องตาม `IMPLEMENTATION_SPEC.md`) นอกจากนี้ยังมีฟีเจอร์ใหม่ที่ **ship ไปแล้วแต่ยังไม่ถูกกล่าวถึง** ในเอกสารฉบับนี้ ได้แก่:
+>
+> - **M3 Shared Reinforcement** — pool กองกำลังเสริมร่วมของทีม, ระบบ respawn, และเงื่อนไขจบเกมเมื่อไม่มีผู้รอดชีวิต (no-survivor game over)
+> - **M4 Role Draft** — บทบาท Vanguard/Guardian/Salvager พร้อม stat modifiers และระบบ draft ใน lobby ของ host
+> - **Ship Designer** — grid editor บนมือถือ และการวาด/เรนเดอร์ ship ที่กำหนดเองบน host
+>
+> โปรดอ้างอิง `IMPLEMENTATION_SPEC.md` สำหรับสถานะปัจจุบันที่ถูกต้องที่สุด เอกสารฉบับนี้เก็บไว้เพื่อบริบททางประวัติศาสตร์เท่านั้น
+
 ## Current Assessment
 
 สถาปัตยกรรมหลักใช้ได้ดี:

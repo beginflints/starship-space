@@ -43,16 +43,18 @@
 
 ### สิ่งที่ยังไม่มี
 
-- objective entity กลางทีม เช่น payload/core/beacon
-- revive หรือ shared life system
-- role/asymmetry system
-- protocol สำหรับส่งข้อมูลเฉพาะบทบาทไปมือถือ
+- ~~objective entity กลางทีม เช่น payload/core/beacon~~ ✅ `Flag (2026-07-20)`: DONE — Convoy core + mode ใช้งานแล้ว (ดูหัวข้อ 4.1)
+- ~~revive หรือ shared life system~~ ✅ `Flag (2026-07-20)`: DONE — shared reinforcement pool + respawn ทำแล้ว (ดูหัวข้อ 4.3)
+- ~~role/asymmetry system~~ ✅ `Flag (2026-07-20)`: DONE — Role enum 4 ค่า + passive effects ทำแล้ว (ดูหัวข้อ 4.5)
+- protocol สำหรับส่งข้อมูลเฉพาะบทบาทไปมือถือ (ยังเป็น Phase 4 ของ roadmap)
 - mode selection / mutator framework
 
 ### ผลกระทบเชิงเทคนิค
 
-ตอนนี้มือถือส่งได้แค่ `join`, `input`, `buy` ตาม [`src/server/messages.rs`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/src/server/messages.rs)
+ตอนนี้มือถือส่งได้ `join`, `input`, `buy`, `ship_design` ตาม [`src/server/messages.rs`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/src/server/messages.rs)
 และ server ส่งกลับได้แค่ `joined`, `state`, `event`, `market`
+
+> `Flag (2026-07-20):` state message มี `respawning` และ `respawn_seconds` สำหรับ reinforcement mode แล้ว
 
 ดังนั้น:
 
@@ -215,6 +217,18 @@
 
 ## 4.3 Shared Reinforcement Mode
 
+> `Flag (2026-07-20):` ✅ **DONE** — shipped แล้วเป็น M3
+>
+> implementation จริง:
+> - team reinforcement pool สูงสุด 5
+> - per-player respawn state (`is_respawning`, `respawn_timer = 3.0s`)
+> - auto-respawn หลัง `respawn_timer` หมด (ไม่ใช่ 5s)
+> - game over เมื่อ `alive == 0 && respawning == 0`
+> - HUD reinforcement counter บน host
+> - `state` message ส่ง `respawning` + `respawn_seconds`
+>
+> ไฟล์ที่แตะ: `src/game/state.rs`, `src/game/mod.rs`, `src/server/messages.rs`
+
 ### High Concept
 
 ทีมมี `reinforcement pool` ร่วมกัน
@@ -336,6 +350,16 @@
 
 ## 4.5 Role Draft Mode
 
+> `Flag (2026-07-20):` ✅ **DONE** — shipped แล้วเป็น M4
+>
+> ความจริงเทียบกับ proposal ด้านล่าง:
+> - enum จริงมี 4 ค่ารวม `None`: `None` / `Vanguard` / `Guardian` / `Salvager`
+> - draft ทำฝั่ง host ด้วย keyboard ใน lobby (`LEFT/RIGHT` เลือกผู้เล่น, `Q/E` cycle role) — ไม่ใช่ "ทุกคน lock role จากจอมือถือ"
+> - effects จริง: Vanguard (fire_cooldown 0.82×, hp 2), Guardian (hp 4, invincibility 2.8s), Salvager (pickup_radius 24, kill_coin_bonus 2, drop_coin_bonus 8)
+> - ตัวเลข role modifier อยู่ใน [`IMPLEMENTATION_SPEC.md`](/Users/kanokpichasonsmacbookair/Documents/GitHub/Games/Game001/IMPLEMENTATION_SPEC.md) หัวข้อ 8.1
+>
+> ไฟล์ที่แตะ: `src/game/state.rs`, `src/game/mod.rs`, `src/game/renderer.rs`
+
 ### High Concept
 
 ก่อนเริ่ม run หรือก่อนเข้า sector ให้ผู้เล่นเลือก role คนละ 1 แบบ
@@ -435,11 +459,13 @@
 
 ### Best First Build
 
-1. `Convoy / Escort Mode`
-2. `Shared Reinforcement Mode`
-3. `Role Draft Mode`
+> `Flag (2026-07-20):` ทั้ง 3 โหมด **Completed** แล้ว — ส่วนถัดไปที่ยังไม่ทำคือ Command Relay
 
-เหตุผล:
+1. ~~`Convoy / Escort Mode`~~ ✅ DONE
+2. ~~`Shared Reinforcement Mode`~~ ✅ DONE
+3. ~~`Role Draft Mode`~~ ✅ DONE
+
+เหตุผล (ที่เคยแนะนำ):
 
 - ทั้ง 3 ตัวเพิ่ม teamwork ชัด
 - ยังใช้ controller ปัจจุบันได้เกือบหมด
@@ -466,6 +492,8 @@
 
 ## Phase 1: Team Objective Foundation
 
+> `Flag (2026-07-20):` ✅ **DONE** — ส่งมอบเป็น Convoy mode (ดูหัวข้อ 4.1)
+
 เป้าหมาย:
 
 - ทำให้เกมมี objective กลางทีม
@@ -484,6 +512,8 @@
 
 ## Phase 2: Team Survival Foundation
 
+> `Flag (2026-07-20):` ✅ **DONE** — ส่งมอบเป็น M3 Shared Reinforcement (ดูหัวข้อ 4.3)
+
 เป้าหมาย:
 
 - ทำให้การตายมีผลต่อทั้งทีม
@@ -500,6 +530,8 @@
 - run มี tension เชิงทีมมากขึ้นทันที
 
 ## Phase 3: Identity Foundation
+
+> `Flag (2026-07-20):` ✅ **DONE** — ส่งมอบเป็น M4 Role Draft (ดูหัวข้อ 4.5)
 
 เป้าหมาย:
 
@@ -547,19 +579,25 @@
 
 ## 7. Engineering Backlog by Scope
 
+### Completed
+
+> `Flag (2026-07-20):` ✅ shipped แล้วทั้งหมด — ย้ายออกจาก backlog จริง
+
+- ✅ objective entity ใหม่ เช่น convoy core (Convoy mode)
+- ✅ shared reinforcement + respawn (M3)
+- ✅ role draft พร้อม passive effects 4 roles (M4)
+- ✅ HUD block สำหรับ objective/reinforcement (convoy bar + reinforcement counter)
+- ✅ ship_design input message (bonus feature)
+
 ## Small
 
 - เพิ่ม `GameMode` selector ใน lobby
-- เพิ่ม HUD block สำหรับ objective/reinforcement
 - เพิ่ม mutator flags พื้นฐาน
 - เพิ่ม summary screen หลังจบเกม
 
 ## Medium
 
-- objective entity ใหม่ เช่น convoy core
-- shared reinforcement + respawn
-- salvage pickup / dock zone
-- role draft พร้อม passive 3 แบบ
+- salvage pickup / dock zone (Salvage Run — ยังไม่ทำ)
 
 ## Large
 
@@ -572,33 +610,23 @@
 
 ถ้าต้องเลือกแผนที่ "ถูกทั้ง product และ engineering" มากที่สุด:
 
+> `Flag (2026-07-20):` Milestone 1-3 (Convoy / Shared Reinforcement / Role Draft) **shipped แล้วทั้งหมด**
+>
+> milestone เดิมด้านล่างเก็บไว้อ้างอิงทางประวัติศาสตร์ แต่งานจริงถัดไปคือ:
+> - **Playtest** โหมดที่ ship แล้วเพื่อ tune balance (reinforcement pool, role modifiers)
+> - หรือเริ่ม **Command Relay Mode** (Phase 4 ของ roadmap) ซึ่งเป็น differentiator ถัดไป
+
 ### Milestone 1
 
-ทำ `Convoy / Escort Mode`
-
-เพราะ:
-
-- teamwork impact สูง
-- อธิบายง่าย
-- ไม่ชนกับ network/mobile complexity มาก
+~~ทำ `Convoy / Escort Mode`~~ ✅ DONE
 
 ### Milestone 2
 
-ตามด้วย `Shared Reinforcement Mode`
-
-เพราะ:
-
-- ทำให้ objective mode ตึงขึ้นมาก
-- ผู้เล่นเริ่มรู้สึกว่าทั้งทีมใช้ทรัพยากรร่วมกัน
+~~ตามด้วย `Shared Reinforcement Mode`~~ ✅ DONE
 
 ### Milestone 3
 
-ตามด้วย `Role Draft Mode`
-
-เพราะ:
-
-- เปิดทางให้ market สนุกขึ้น
-- ทำให้ทีมคุยกันก่อนเริ่มแต่ละรอบ
+~~ตามด้วย `Role Draft Mode`~~ ✅ DONE
 
 ### Milestone 4
 
